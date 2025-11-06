@@ -1,0 +1,154 @@
+<Window
+    x:Class="SimpleSoundboard.Views.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Simple Soundboard">
+
+    <Grid x:Name="RootGrid" Padding="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Spacing="10" Margin="0,0,0,20">
+            <TextBlock Text="Simple Soundboard" Style="{StaticResource TitleTextBlockStyle}"/>
+            <TextBlock Text="Low-latency audio mixing with global hotkeys" 
+                       Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"/>
+        </StackPanel>
+
+        <!-- Audio Configuration -->
+        <Grid Grid.Row="1" Margin="0,0,0,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Row="0" Grid.Column="0" Spacing="8" Margin="0,0,10,0">
+                <TextBlock Text="Input Device (Microphone)" FontWeight="SemiBold"/>
+                <ComboBox ItemsSource="{x:Bind ViewModel.InputDevices, Mode=OneWay}"
+                          SelectedItem="{x:Bind ViewModel.SelectedInputDevice, Mode=TwoWay}"
+                          HorizontalAlignment="Stretch"
+                          DisplayMemberPath="FriendlyName"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="0" Grid.Column="1" Spacing="8" Margin="10,0,0,0">
+                <TextBlock Text="Output Device (Virtual Audio)" FontWeight="SemiBold"/>
+                <ComboBox ItemsSource="{x:Bind ViewModel.OutputDevices, Mode=OneWay}"
+                          SelectedItem="{x:Bind ViewModel.SelectedOutputDevice, Mode=TwoWay}"
+                          HorizontalAlignment="Stretch"
+                          DisplayMemberPath="FriendlyName"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" 
+                        Orientation="Horizontal" Spacing="10" Margin="0,15,0,0">
+                <Button Content="Start/Stop Audio"
+                        Command="{x:Bind ViewModel.StartStopAudioCommand}"
+                        Style="{StaticResource AccentButtonStyle}"
+                        MinWidth="120"/>
+                <Button Content="Refresh Devices"
+                        Command="{x:Bind ViewModel.RefreshDevicesCommand}"/>
+                <Button Content="Save Configuration"
+                        Command="{x:Bind ViewModel.SaveConfigurationCommand}"/>
+            </StackPanel>
+
+            <ProgressBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                         Value="{x:Bind ViewModel.AudioLevel, Mode=OneWay}"
+                         Maximum="1.0"
+                         Margin="0,15,0,0"
+                         ShowError="False"
+                         ShowPaused="False"/>
+        </Grid>
+
+        <!-- Sound Items List -->
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                <TextBlock Text="Sound Items" 
+                           Style="{StaticResource SubtitleTextBlockStyle}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,10,0"/>
+                <Button Content="Add Sound" 
+                        Command="{x:Bind ViewModel.AddSoundCommand}"/>
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1">
+                <ItemsControl ItemsSource="{x:Bind ViewModel.SoundItems, Mode=OneWay}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="4"
+                                    Padding="15"
+                                    Margin="0,0,0,10">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Spacing="8">
+                                        <TextBox Header="Name" 
+                                                 Text="{Binding Name, Mode=TwoWay}"
+                                                 MinWidth="200"/>
+                                        <TextBox Header="File Path" 
+                                                 Text="{Binding FilePath, Mode=TwoWay}"
+                                                 MinWidth="400"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <Slider Header="Volume" 
+                                                    Value="{Binding Volume, Mode=TwoWay}"
+                                                    Minimum="0" Maximum="1"
+                                                    StepFrequency="0.1"
+                                                    Width="150"/>
+                                            <CheckBox Content="Enabled" 
+                                                      IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                      VerticalAlignment="Bottom"
+                                                      Margin="0,0,0,5"/>
+                                            <TextBlock VerticalAlignment="Bottom" 
+                                                       Margin="10,0,0,5"
+                                                       Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}">
+                                                <Run Text="Plays: "/>
+                                                <Run Text="{Binding PlayCount}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <Button Grid.Column="1" 
+                                            Content="Remove"
+                                            Command="{Binding DataContext.RemoveSoundCommand, ElementName=RootGrid}"
+                                            CommandParameter="{Binding}"
+                                            VerticalAlignment="Top"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="3" 
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                Padding="10"
+                Margin="0,20,0,0"
+                CornerRadius="4">
+            <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                       FontSize="12"/>
+        </Border>
+    </Grid>
+</Window>

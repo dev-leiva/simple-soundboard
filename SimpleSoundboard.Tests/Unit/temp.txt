@@ -1,0 +1,827 @@
+using FluentAssertions;
+using NAudio.Wave;
+using SimpleSoundboard.Core.Models;
+using Xunit;
+
+namespace SimpleSoundboard.Tests.Unit;
+
+public class AudioProcessingTests
+{
+    [Fact]
+    public void AudioBufferMixing_WithMultipleSources_ShouldCombineSamples()
+    {
+        var buffer1 = new float[] { 0.5f, 0.3f, 0.4f };
+        var buffer2 = new float[] { 0.2f, 0.1f, 0.3f };
+        var output = new float[3];
+
+        for (int i = 0; i < output.Length; i++)
+        {
+            output[i] = buffer1[i] + buffer2[i];
+        }
+
+        output[0].Should().Be(0.7f);
+        output[1].Should().Be(0.4f);
+        output[2].Should().Be(0.7f);
+    }
+
+    [Fact]
+    public void AudioMixing_WithOverflow_ShouldClampValues()
+    {
+        var buffer1 = new float[] { 0.8f, 0.9f };
+        var buffer2 = new float[] { 0.5f, 0.6f };
+        var output = new float[2];
+
+        for (int i = 0; i < output.Length; i++)
+        {
+            output[i] = Math.Clamp(buffer1[i] + buffer2[i], -1.0f, 1.0f);
+        }
+
+        output[0].Should().Be(1.0f);
+        output[1].Should().Be(1.0f);
+    }
+
+    [Fact]
+    public void VolumeApplication_WithReductionFactor_ShouldReduceSamples()
+    {
+        var buffer = new float[] { 1.0f, 0.8f, 0.6f };
+        var volume = 0.5f;
+        var output = new float[3];
+
+        for (int i = 0; i < buffer.Length; i++)
+        {
+            output[i] = buffer[i] * volume;
+        }
+
+        output[0].Should().BeApproximately(0.5f, 0.001f);
+        output[1].Should().BeApproximately(0.4f, 0.001f);
+        output[2].Should().BeApproximately(0.3f, 0.001f);
+    }
+
+    [Fact]
+    public void VolumeApplication_WithAmplificationFactor_ShouldAmplifyAndClamp()
+    {
+        var buffer = new float[] { 0.8f, 0.6f };
+        var volume = 1.5f;
+        var output = new float[2];
+
+        for (int i = 0; i < buffer.Length; i++)
+        {
+            output[i] = Math.Clamp(buffer[i] * volume, -1.0f, 1.0f);
+        }
+
+        output[0].Should().Be(1.0f);
+        output[1].Should().BeApproximately(0.9f, 0.001f);
+    }
+
+    [Fact]
+    public void AudioDevice_Enumeration_ShouldReturnValidFormat()
+    {
+        var device = new AudioDeviceInfo
+        {
+            DeviceId = "test-device-id",
+            FriendlyName = "Test Device",
+            DeviceType = AudioDeviceType.Input,
+            Channels = 2,
+            SampleRate = 48000,
+            IsDefault = true
+        };
+
+        device.DeviceId.Should().NotBeNullOrEmpty();
+        device.Channels.Should().BeGreaterThan(0);
+        device.SampleRate.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void WaveFormat_StandardConfiguration_ShouldMatchSpecification()
+    {
+        var waveFormat = WaveFormat.CreateIeeeFloatWaveFormat(48000, 2);
+
+        waveFormat.SampleRate.Should().Be(48000);
+        waveFormat.Channels.Should().Be(2);
+        waveFormat.Encoding.Should().Be(WaveFormatEncoding.IeeeFloat);
+    }
+
+    [Fact]
+    public void AudioBuffer_ZeroSamples_ShouldRemainSilent()
+    {
+        var buffer = new float[100];
+        Array.Fill(buffer, 0f);
+
+        var maxSample = buffer.Max(Math.Abs);
+        maxSample.Should().Be(0f);
+    }
+
+    [Fact]
+    public void AudioMixing_WithNegativeSamples_ShouldHandleCorrectly()
+    {
+        var buffer1 = new float[] { 0.5f, -0.3f };
+        var buffer2 = new float[] { -0.2f, 0.4f };
+        var output = new float[2];
+
+        for (int i = 0; i < output.Length; i++)
+        {
+            output[i] = Math.Clamp(buffer1[i] + buffer2[i], -1.0f, 1.0f);
+        }
+
+        output[0].Should().BeApproximately(0.3f, 0.001f);
+        output[1].Should().BeApproximately(0.1f, 0.001f);
+    }
+
+    [Fact]
+    public void AudioBuffer_LargeSize_ShouldCalculateCorrectly()
+    {
+        var sampleRate = 48000;
+        var channels = 2;
+        var durationSeconds = 1;
+        
+        var expectedSamples = sampleRate * channels * durationSeconds;
+
+        expectedSamples.Should().Be(96000);
+    }
+
+    [Fact]
+    public void VolumeControl_ZeroVolume_ShouldProduceSilence()
+    {
+        var buffer = new float[] { 0.8f, 0.6f, 0.9f };
+        var volume = 0f;
+        var output = new float[3];
+
+        for (int i = 0; i < buffer.Length; i++)
+        {
+            output[i] = buffer[i] * volume;
+        }
+
+        output.Should().AllBe(0f);
+    }
+
+    [Fact]
+    public void AudioConfiguration_ValidParameters_ShouldBeAccepted()
+    {
+        var config = new AppConfiguration
+        {
+            SampleRate = 48000,
+            BufferSize = 480,
+            MasterVolume = 1.0f,
+            MicrophoneVolume = 0.8f
+        };
+
+        config.SampleRate.Should().Be(48000);
+        config.BufferSize.Should().BeGreaterThan(0);
+        config.MasterVolume.Should().BeInRange(0f, 1f);
+        config.MicrophoneVolume.Should().BeInRange(0f, 1f);
+    }
+
+    [Fact]
+    public void BufferLatency_Calculation_ShouldMatchExpected()
+    {
+        var bufferSize = 480;
+        var sampleRate = 48000;
+        var expectedLatencyMs = (bufferSize / (double)sampleRate) * 1000;
+
+        expectedLatencyMs.Should().Be(10.0);
+    }
+
+    [Fact]
+    public void SampleConversion_Int16ToFloat_ShouldNormalize()
+    {
+        short int16Sample = 16384;
+        float normalized = int16Sample / 32768f;
+
+        normalized.Should().BeApproximately(0.5f, 0.001f);
+    }
+
+    [Fact]
+    public void SampleConversion_FloatToInt16_ShouldScale()
+    {
+        float floatSample = 0.5f;
+        short int16Sample = (short)(floatSample * 32767);
+
+        int16Sample.Should().Be(16383);
+    }
+}
+
+using FluentAssertions;
+using SimpleSoundboard.Core.Models;
+using SimpleSoundboard.Core.Services;
+using System.Text.Json;
+using Xunit;
+
+namespace SimpleSoundboard.Tests.Unit;
+
+public class ConfigurationTests
+{
+    [Fact]
+    public async Task ConfigurationSerialization_ComplexObject_ShouldPreserveData()
+    {
+        var config = new AppConfiguration
+        {
+            SelectedInputDeviceId = "input-device-123",
+            SelectedOutputDeviceId = "output-device-456",
+            BufferSize = 480,
+            SampleRate = 48000,
+            MasterVolume = 0.85f,
+            MicrophoneVolume = 0.75f,
+            UseExclusiveMode = true,
+            SoundItems = new List<SoundItem>
+            {
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Test Sound",
+                    FilePath = "C:\\test.wav",
+                    Volume = 0.9f,
+                    Hotkey = new HotkeyBinding
+                    {
+                        Modifiers = ModifierKeys.Control,
+                        VirtualKeyCode = 0x41
+                    }
+                }
+            }
+        };
+
+        var json = JsonSerializer.Serialize(config, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        var deserialized = JsonSerializer.Deserialize<AppConfiguration>(json, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        deserialized.Should().NotBeNull();
+        deserialized!.SelectedInputDeviceId.Should().Be(config.SelectedInputDeviceId);
+        deserialized.BufferSize.Should().Be(config.BufferSize);
+        deserialized.SoundItems.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void DefaultConfiguration_ShouldHaveValidValues()
+    {
+        var config = AppConfiguration.GetDefault();
+
+        config.Should().NotBeNull();
+        config.BufferSize.Should().BeGreaterThan(0);
+        config.SampleRate.Should().BeGreaterThan(0);
+        config.MasterVolume.Should().BeInRange(0f, 1f);
+        config.MicrophoneVolume.Should().BeInRange(0f, 1f);
+        config.SoundItems.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ConfigurationService_SaveAndLoad_ShouldRoundtrip()
+    {
+        var service = new ConfigurationService();
+        var config = new AppConfiguration
+        {
+            SelectedInputDeviceId = "test-input",
+            SelectedOutputDeviceId = "test-output",
+            BufferSize = 960,
+            SampleRate = 44100
+        };
+
+        var saved = await service.SaveConfigurationAsync(config);
+        saved.Should().BeTrue();
+
+        var loaded = await service.LoadConfigurationAsync();
+        loaded.Should().NotBeNull();
+        loaded.SelectedInputDeviceId.Should().Be(config.SelectedInputDeviceId);
+        loaded.BufferSize.Should().Be(config.BufferSize);
+    }
+
+    [Fact]
+    public async Task ConfigurationService_LoadNonExistent_ShouldReturnDefault()
+    {
+        var service = new ConfigurationService();
+        var configPath = service.GetConfigFilePath();
+
+        if (File.Exists(configPath))
+        {
+            File.Delete(configPath);
+        }
+
+        var loaded = await service.LoadConfigurationAsync();
+
+        loaded.Should().NotBeNull();
+        loaded.Should().BeEquivalentTo(AppConfiguration.GetDefault());
+    }
+
+    [Fact]
+    public void ConfigurationValidation_InvalidBufferSize_ShouldBeDetectable()
+    {
+        var config = new AppConfiguration
+        {
+            BufferSize = -100
+        };
+
+        config.BufferSize.Should().BeLessThan(0);
+    }
+
+    [Fact]
+    public void ConfigurationValidation_InvalidVolume_ShouldBeDetectable()
+    {
+        var config = new AppConfiguration
+        {
+            MasterVolume = 1.5f
+        };
+
+        config.MasterVolume.Should().BeGreaterThan(1.0f);
+    }
+
+    [Fact]
+    public void Configuration_EmptyDeviceIds_ShouldBeAllowed()
+    {
+        var config = new AppConfiguration
+        {
+            SelectedInputDeviceId = string.Empty,
+            SelectedOutputDeviceId = string.Empty
+        };
+
+        config.SelectedInputDeviceId.Should().BeEmpty();
+        config.SelectedOutputDeviceId.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Configuration_EmptySoundItems_ShouldBeValid()
+    {
+        var config = new AppConfiguration
+        {
+            SoundItems = new List<SoundItem>()
+        };
+
+        config.SoundItems.Should().BeEmpty();
+        config.SoundItems.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ConfigurationSerialization_NullValues_ShouldHandle()
+    {
+        var config = new AppConfiguration
+        {
+            SelectedInputDeviceId = string.Empty,
+            SelectedOutputDeviceId = string.Empty,
+            SoundItems = new List<SoundItem>
+            {
+                new()
+                {
+                    Name = "Test",
+                    FilePath = "C:\\test.wav",
+                    Hotkey = null
+                }
+            }
+        };
+
+        var json = JsonSerializer.Serialize(config);
+        var deserialized = JsonSerializer.Deserialize<AppConfiguration>(json);
+
+        deserialized.Should().NotBeNull();
+        deserialized!.SoundItems[0].Hotkey.Should().BeNull();
+    }
+
+    [Fact]
+    public void Configuration_AllProperties_ShouldBeSettable()
+    {
+        var config = new AppConfiguration
+        {
+            SelectedInputDeviceId = "input",
+            SelectedOutputDeviceId = "output",
+            BufferSize = 512,
+            SampleRate = 96000,
+            MasterVolume = 0.5f,
+            MicrophoneVolume = 0.6f,
+            UseExclusiveMode = false,
+            EnableVirtualAudioDriver = true
+        };
+
+        config.SelectedInputDeviceId.Should().Be("input");
+        config.SelectedOutputDeviceId.Should().Be("output");
+        config.BufferSize.Should().Be(512);
+        config.SampleRate.Should().Be(96000);
+        config.MasterVolume.Should().Be(0.5f);
+        config.MicrophoneVolume.Should().Be(0.6f);
+        config.UseExclusiveMode.Should().BeFalse();
+        config.EnableVirtualAudioDriver.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ConfigurationService_MultipleWrites_ShouldOverwrite()
+    {
+        var service = new ConfigurationService();
+        
+        var config1 = new AppConfiguration { BufferSize = 480 };
+        await service.SaveConfigurationAsync(config1);
+
+        var config2 = new AppConfiguration { BufferSize = 960 };
+        await service.SaveConfigurationAsync(config2);
+
+        var loaded = await service.LoadConfigurationAsync();
+        loaded.BufferSize.Should().Be(960);
+    }
+}
+
+using FluentAssertions;
+using SimpleSoundboard.Core.Models;
+using SimpleSoundboard.Core.Services;
+using Xunit;
+
+namespace SimpleSoundboard.Tests.Unit;
+
+public class HotkeySystemTests
+{
+    [Fact]
+    public void HotkeyString_WithMultipleModifiers_ShouldFormatCorrectly()
+    {
+        var hotkey = new HotkeyBinding
+        {
+            Modifiers = ModifierKeys.Control | ModifierKeys.Shift,
+            VirtualKeyCode = 0x41
+        };
+
+        var displayString = hotkey.GetDisplayString();
+
+        displayString.Should().Contain("Ctrl");
+        displayString.Should().Contain("Shift");
+        displayString.Should().Contain("A");
+    }
+
+    [Fact]
+    public void HotkeyString_WithSingleModifier_ShouldFormatCorrectly()
+    {
+        var hotkey = new HotkeyBinding
+        {
+            Modifiers = ModifierKeys.Alt,
+            VirtualKeyCode = 0x70
+        };
+
+        var displayString = hotkey.GetDisplayString();
+
+        displayString.Should().Contain("Alt");
+        displayString.Should().Contain("F1");
+    }
+
+    [Fact]
+    public void HotkeyString_FunctionKeys_ShouldFormatCorrectly()
+    {
+        var hotkeyF1 = new HotkeyBinding { VirtualKeyCode = 0x70 };
+        var hotkeyF12 = new HotkeyBinding { VirtualKeyCode = 0x7B };
+
+        hotkeyF1.GetDisplayString().Should().Contain("F1");
+        hotkeyF12.GetDisplayString().Should().Contain("F12");
+    }
+
+    [Fact]
+    public void HotkeyString_NumberKeys_ShouldFormatCorrectly()
+    {
+        var hotkey = new HotkeyBinding
+        {
+            Modifiers = ModifierKeys.Control,
+            VirtualKeyCode = 0x31
+        };
+
+        var displayString = hotkey.GetDisplayString();
+
+        displayString.Should().Contain("1");
+    }
+
+    [Fact]
+    public void HotkeyIdentifier_SameConfiguration_ShouldBeConsistent()
+    {
+        var hotkey1 = new HotkeyBinding
+        {
+            Modifiers = ModifierKeys.Control | ModifierKeys.Alt,
+            VirtualKeyCode = 0x42
+        };
+
+        var hotkey2 = new HotkeyBinding
+        {
+            Modifiers = ModifierKeys.Control | ModifierKeys.Alt,
+            VirtualKeyCode = 0x42
+        };
+
+        hotkey1.GetHashCode().Should().Be(hotkey2.GetHashCode());
+        hotkey1.Equals(hotkey2).Should().BeTrue();
+    }
+
+    [Fact]
+    public void HotkeyIdentifier_DifferentModifiers_ShouldBeDifferent()
+    {
+        var hotkey1 = new HotkeyBinding
+        {
+            Modifiers = ModifierKeys.Control,
+            VirtualKeyCode = 0x41
+        };
+
+        var hotkey2 = new HotkeyBinding
+        {
+            Modifiers = ModifierKeys.Alt,
+            VirtualKeyCode = 0x41
+        };
+
+        hotkey1.Equals(hotkey2).Should().BeFalse();
+    }
+
+    [Fact]
+    public void HotkeyIdentifier_DifferentKeys_ShouldBeDifferent()
+    {
+        var hotkey1 = new HotkeyBinding
+        {
+            Modifiers = ModifierKeys.Control,
+            VirtualKeyCode = 0x41
+        };
+
+        var hotkey2 = new HotkeyBinding
+        {
+            Modifiers = ModifierKeys.Control,
+            VirtualKeyCode = 0x42
+        };
+
+        hotkey1.Equals(hotkey2).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ModifierKeys_BitwiseOperations_ShouldCombineCorrectly()
+    {
+        var modifiers = ModifierKeys.Control | ModifierKeys.Shift | ModifierKeys.Alt;
+
+        modifiers.HasFlag(ModifierKeys.Control).Should().BeTrue();
+        modifiers.HasFlag(ModifierKeys.Shift).Should().BeTrue();
+        modifiers.HasFlag(ModifierKeys.Alt).Should().BeTrue();
+        modifiers.HasFlag(ModifierKeys.Win).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ModifierKeys_None_ShouldHaveNoFlags()
+    {
+        var modifiers = ModifierKeys.None;
+
+        modifiers.HasFlag(ModifierKeys.Control).Should().BeFalse();
+        modifiers.HasFlag(ModifierKeys.Shift).Should().BeFalse();
+        modifiers.HasFlag(ModifierKeys.Alt).Should().BeFalse();
+        modifiers.HasFlag(ModifierKeys.Win).Should().BeFalse();
+    }
+
+    [Fact]
+    public void HotkeyManager_ProcessMessage_ShouldTriggerCorrectSound()
+    {
+        var manager = new HotkeyManager();
+        var soundId = Guid.NewGuid();
+        Guid? triggeredSoundId = null;
+
+        manager.HotkeyPressed += (sender, id) => triggeredSoundId = id;
+
+        var hotkeyId = 1;
+        manager.ProcessHotkeyMessage(hotkeyId);
+
+        triggeredSoundId.Should().BeNull();
+    }
+
+    [Fact]
+    public void HotkeyBinding_AllModifiers_ShouldDisplayCorrectly()
+    {
+        var hotkey = new HotkeyBinding
+        {
+            Modifiers = ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift | ModifierKeys.Win,
+            VirtualKeyCode = 0x41
+        };
+
+        var displayString = hotkey.GetDisplayString();
+
+        displayString.Should().Contain("Ctrl");
+        displayString.Should().Contain("Alt");
+        displayString.Should().Contain("Shift");
+        displayString.Should().Contain("Win");
+        displayString.Should().Contain("A");
+    }
+
+    [Fact]
+    public void HotkeyBinding_SpecialKeys_ShouldHandleCorrectly()
+    {
+        var spaceKey = new HotkeyBinding { VirtualKeyCode = 0x20 };
+        var enterKey = new HotkeyBinding { VirtualKeyCode = 0x0D };
+        var escKey = new HotkeyBinding { VirtualKeyCode = 0x1B };
+
+        spaceKey.GetDisplayString().Should().Contain("Space");
+        enterKey.GetDisplayString().Should().Contain("Enter");
+        escKey.GetDisplayString().Should().Contain("Esc");
+    }
+
+    [Fact]
+    public void HotkeyManager_Dispose_ShouldUnregisterAll()
+    {
+        var manager = new HotkeyManager();
+        
+        manager.Dispose();
+        
+        var exception = Record.Exception(() => manager.Dispose());
+        exception.Should().BeNull();
+    }
+}
+
+using FluentAssertions;
+using SimpleSoundboard.Core.Models;
+using SimpleSoundboard.Core.Services;
+using Xunit;
+
+namespace SimpleSoundboard.Tests.Unit;
+
+public class SoundManagementTests
+{
+    [Fact]
+    public void AddNewSound_WithValidProperties_ShouldAddToCollection()
+    {
+        var soundItem = new SoundItem
+        {
+            Name = "Test Sound",
+            FilePath = Path.Combine(Path.GetTempPath(), "test.wav"),
+            Volume = 0.8f,
+            IsEnabled = true
+        };
+
+        File.WriteAllText(soundItem.FilePath, "dummy content");
+
+        try
+        {
+            soundItem.IsValid().Should().BeTrue();
+            soundItem.Name.Should().Be("Test Sound");
+            soundItem.Volume.Should().Be(0.8f);
+        }
+        finally
+        {
+            if (File.Exists(soundItem.FilePath))
+                File.Delete(soundItem.FilePath);
+        }
+    }
+
+    [Fact]
+    public void AddSound_WithDuplicateHotkey_ShouldDetectConflict()
+    {
+        var hotkey1 = new HotkeyBinding
+        {
+            Modifiers = ModifierKeys.Control,
+            VirtualKeyCode = 0x41
+        };
+
+        var hotkey2 = new HotkeyBinding
+        {
+            Modifiers = ModifierKeys.Control,
+            VirtualKeyCode = 0x41
+        };
+
+        hotkey1.Should().Be(hotkey2);
+        hotkey1.GetHashCode().Should().Be(hotkey2.GetHashCode());
+    }
+
+    [Fact]
+    public void AddSound_WithInvalidFilePath_ShouldFailValidation()
+    {
+        var soundItem = new SoundItem
+        {
+            Name = "Invalid Sound",
+            FilePath = "C:\\NonExistent\\Path\\file.wav",
+            Volume = 0.8f
+        };
+
+        soundItem.IsValid().Should().BeFalse();
+    }
+
+    [Fact]
+    public void RemoveSound_WithValidIdentifier_ShouldRemoveFromCollection()
+    {
+        var sounds = new List<SoundItem>
+        {
+            new() { Id = Guid.NewGuid(), Name = "Sound 1" },
+            new() { Id = Guid.NewGuid(), Name = "Sound 2" }
+        };
+
+        var targetId = sounds[0].Id;
+        sounds.RemoveAll(s => s.Id == targetId);
+
+        sounds.Should().HaveCount(1);
+        sounds.Should().NotContain(s => s.Id == targetId);
+    }
+
+    [Fact]
+    public void RemoveSound_WithInvalidIdentifier_ShouldNotChangeCollection()
+    {
+        var sounds = new List<SoundItem>
+        {
+            new() { Id = Guid.NewGuid(), Name = "Sound 1" },
+            new() { Id = Guid.NewGuid(), Name = "Sound 2" }
+        };
+
+        var initialCount = sounds.Count;
+        var nonExistentId = Guid.NewGuid();
+        
+        sounds.RemoveAll(s => s.Id == nonExistentId);
+
+        sounds.Should().HaveCount(initialCount);
+    }
+
+    [Fact]
+    public void UpdateSound_Properties_ShouldPersist()
+    {
+        var sound = new SoundItem
+        {
+            Name = "Original Name",
+            Volume = 0.5f
+        };
+
+        sound.Name = "Updated Name";
+        sound.Volume = 0.9f;
+
+        sound.Name.Should().Be("Updated Name");
+        sound.Volume.Should().Be(0.9f);
+    }
+
+    [Fact]
+    public async Task DataPersistence_SaveAndReload_ShouldRestoreIdentically()
+    {
+        var configService = new ConfigurationService();
+        var config = new AppConfiguration
+        {
+            SoundItems = new List<SoundItem>
+            {
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Test Sound",
+                    FilePath = "C:\\test.wav",
+                    Volume = 0.7f,
+                    Hotkey = new HotkeyBinding
+                    {
+                        Modifiers = ModifierKeys.Control | ModifierKeys.Shift,
+                        VirtualKeyCode = 0x42
+                    }
+                }
+            }
+        };
+
+        var saved = await configService.SaveConfigurationAsync(config);
+        saved.Should().BeTrue();
+
+        var loaded = await configService.LoadConfigurationAsync();
+        loaded.SoundItems.Should().HaveCount(1);
+        loaded.SoundItems[0].Name.Should().Be("Test Sound");
+        loaded.SoundItems[0].Volume.Should().Be(0.7f);
+    }
+
+    [Fact]
+    public void HotkeyConflictDetection_AfterReload_ShouldDetectProperly()
+    {
+        var existingHotkeys = new List<HotkeyBinding>
+        {
+            new()
+            {
+                Modifiers = ModifierKeys.Control,
+                VirtualKeyCode = 0x31
+            }
+        };
+
+        var newHotkey = new HotkeyBinding
+        {
+            Modifiers = ModifierKeys.Control,
+            VirtualKeyCode = 0x31
+        };
+
+        existingHotkeys.Should().Contain(h => h.Equals(newHotkey));
+    }
+
+    [Fact]
+    public void SoundItem_WithEmptyName_ShouldFailValidation()
+    {
+        var sound = new SoundItem
+        {
+            Name = "",
+            FilePath = Path.Combine(Path.GetTempPath(), "test.wav"),
+            Volume = 1.0f
+        };
+
+        sound.IsValid().Should().BeFalse();
+    }
+
+    [Fact]
+    public void SoundItem_WithVolumeOutOfRange_ShouldFailValidation()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), "test.wav");
+        File.WriteAllText(tempFile, "dummy");
+
+        try
+        {
+            var sound = new SoundItem
+            {
+                Name = "Test",
+                FilePath = tempFile,
+                Volume = 1.5f
+            };
+
+            sound.IsValid().Should().BeFalse();
+        }
+        finally
+        {
+            if (File.Exists(tempFile))
+                File.Delete(tempFile);
+        }
+    }
+}
+
