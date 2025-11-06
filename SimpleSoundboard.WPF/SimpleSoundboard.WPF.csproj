@@ -20,4 +20,9 @@
   <ItemGroup>
     <ProjectReference Include="..\SimpleSoundboard.Core\SimpleSoundboard.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="app.ico" />
+    <Resource Include="Assets\final.png" />
+  </ItemGroup>
 </Project>
