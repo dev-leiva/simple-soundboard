@@ -13,9 +13,12 @@ public class AudioEngine : IDisposable
 {
     private WasapiCapture? _microphoneCapture;
     private WasapiOut? _audioOutput;
+    private WasapiOut? _monitorOutput;
     private MixingSampleProvider? _mixer;
+    private MixingSampleProvider? _monitorMixer;
     private BufferedWaveProvider? _microphoneBuffer;
     private VolumeSampleProvider? _micVolumeProvider;
+    private MeteringSampleProvider? _meteringSampleProvider;
     private readonly object _lock = new();
     private bool _isRunning;
     private readonly Dictionary<Guid, CachedSound> _cachedSounds = new();
@@ -24,6 +27,7 @@ public class AudioEngine : IDisposable
     private int _currentBufferSize = 240;
     private DateTime _lastLatencyCheck = DateTime.Now;
     private float _currentLatencyMs = 0f;
+    private bool _monitoringEnabled = true;
 
     public event EventHandler<float>? AudioLevelChanged;
     public event EventHandler<string>? ErrorOccurred;
@@ -32,6 +36,11 @@ public class AudioEngine : IDisposable
     public bool IsRunning => _isRunning;
     public float CurrentLatencyMs => _currentLatencyMs;
     public int CurrentBufferSize => _currentBufferSize;
+    public bool MonitoringEnabled
+    {
+        get => _monitoringEnabled;
+        set => _monitoringEnabled = value;
+    }
     
     public void SetMicrophoneGain(float gain)
     {
@@ -112,9 +121,40 @@ public class AudioEngine : IDisposable
 
                 if (device != null)
                 {
+                    // Wrap mixer with metering to monitor output levels
+                    _meteringSampleProvider = new MeteringSampleProvider(_mixer);
+                    _meteringSampleProvider.StreamVolume += OnStreamVolume;
+                    
                     // Use Shared mode for better compatibility (Exclusive mode often fails with 0x88890016)
                     _audioOutput = new WasapiOut(device, AudioClientShareMode.Shared, true, bufferSize);
-                    _audioOutput.Init(_mixer);
+                    _audioOutput.Init(_meteringSampleProvider);
+                }
+            }
+
+            // Initialize monitoring output (sounds only, not microphone)
+            if (_monitoringEnabled)
+            {
+                try
+                {
+                    var enumerator = new MMDeviceEnumerator();
+                    var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                    
+                    // Only create monitor output if it's different from the main output
+                    if (defaultDevice.ID != outputDevice.DeviceId)
+                    {
+                        _monitorMixer = new MixingSampleProvider(_mixerFormat)
+                        {
+                            ReadFully = true
+                        };
+                        
+                        _monitorOutput = new WasapiOut(defaultDevice, AudioClientShareMode.Shared, true, bufferSize);
+                        _monitorOutput.Init(_monitorMixer);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ErrorOccurred?.Invoke(this, $"Monitor output initialization error (non-critical): {ex.Message}");
+                    // Continue without monitoring - not critical
                 }
             }
         }
@@ -133,6 +173,7 @@ public class AudioEngine : IDisposable
         {
             _microphoneCapture?.StartRecording();
             _audioOutput?.Play();
+            _monitorOutput?.Play();
             _isRunning = true;
         }
         catch (Exception ex)
@@ -150,6 +191,7 @@ public class AudioEngine : IDisposable
         {
             _microphoneCapture?.StopRecording();
             _audioOutput?.Stop();
+            _monitorOutput?.Stop();
             _isRunning = false;
         }
         catch (Exception ex)
@@ -173,7 +215,9 @@ public class AudioEngine : IDisposable
                     return (false, $"Sound '{soundItem.Name}' is too long ({audioFile.TotalTime.TotalSeconds:F1}s). Maximum is 10 seconds.");
                 }
                 
-                var cachedSound = new CachedSound(audioFile, soundItem.Volume, _mixerFormat!);
+                // Use default format if mixer format is not initialized yet (will be reloaded when audio starts)
+                var targetFormat = _mixerFormat ?? WaveFormat.CreateIeeeFloatWaveFormat(48000, 2);
+                var cachedSound = new CachedSound(audioFile, soundItem.Volume, targetFormat);
                 
                 lock (_lock)
                 {
@@ -204,8 +248,16 @@ public class AudioEngine : IDisposable
         {
             if (_cachedSounds.TryGetValue(soundId, out var cachedSound))
             {
+                // Add sound to main output (VB-Cable)
                 var sampleProvider = new CachedSoundSampleProvider(cachedSound, volume);
                 _mixer.AddMixerInput(sampleProvider);
+                
+                // Also add sound to monitor output (user's speakers) if available
+                if (_monitorMixer != null && _monitoringEnabled)
+                {
+                    var monitorSampleProvider = new CachedSoundSampleProvider(cachedSound, volume);
+                    _monitorMixer.AddMixerInput(monitorSampleProvider);
+                }
             }
         }
     }
@@ -213,15 +265,6 @@ public class AudioEngine : IDisposable
     private void OnMicrophoneDataAvailable(object? sender, WaveInEventArgs e)
     {
         _microphoneBuffer?.AddSamples(e.Buffer, 0, e.BytesRecorded);
-
-        var maxSample = 0f;
-        for (int i = 0; i < e.BytesRecorded; i += 2)
-        {
-            var sample = Math.Abs(BitConverter.ToInt16(e.Buffer, i) / 32768f);
-            if (sample > maxSample) maxSample = sample;
-        }
-
-        AudioLevelChanged?.Invoke(this, maxSample);
 
         // Calculate latency every 500ms to reduce overhead
         if ((DateTime.Now - _lastLatencyCheck).TotalMilliseconds > 500)
@@ -231,6 +274,12 @@ public class AudioEngine : IDisposable
             _currentLatencyMs = (_currentBufferSize / (float)sampleRate) * 1000f;
             LatencyChanged?.Invoke(this, _currentLatencyMs);
         }
+    }
+
+    private void OnStreamVolume(object? sender, StreamVolumeEventArgs e)
+    {
+        // Use the max value from the metering to show overall output level (microphone + sounds)
+        AudioLevelChanged?.Invoke(this, e.MaxSampleValues[0]);
     }
 
     public List<AudioDeviceInfo> GetAudioDevices(AudioDeviceType deviceType)
@@ -299,7 +348,9 @@ public class AudioEngine : IDisposable
         Stop();
         _microphoneCapture?.Dispose();
         _audioOutput?.Dispose();
+        _monitorOutput?.Dispose();
         _mixer = null;
+        _monitorMixer = null;
         
         lock (_lock)
         {
@@ -334,13 +385,15 @@ public class AudioEngine : IDisposable
             var sampleProvider = reader.ToSampleProvider();
             ISampleProvider input = sampleProvider;
             
-            // Resample to match mixer format
+            // Convert mono to stereo if needed
             if (sampleProvider.WaveFormat.Channels == 1 && targetFormat.Channels == 2)
             {
                 input = new MonoToStereoSampleProvider(sampleProvider);
             }
             
-            if (input.WaveFormat.SampleRate != targetFormat.SampleRate)
+            // Resample if sample rate doesn't match
+            var currentSampleRate = input.WaveFormat.SampleRate;
+            if (currentSampleRate != targetFormat.SampleRate)
             {
                 input = new WdlResamplingSampleProvider(input, targetFormat.SampleRate);
             }
