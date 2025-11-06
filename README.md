@@ -1,12 +1,14 @@
+Here's the updated README with outdated references removed and the new changelog information integrated:
+
 # Simple Soundboard
 
-A low-latency Windows soundboard application that mixes microphone input with triggered sound files and outputs to a virtual audio device. Perfect for Discord, OBS, streaming, and content creation.
+A low-latency Windows soundboard application that mixes microphone input with triggered sound files and outputs to virtual or physical audio devices. Perfect for Discord, OBS, streaming, and content creation.
 
 ## Features
 
 - **VB-Cable Integration**: Automatic detection and setup of VB-Audio Virtual Cable
 - **Low-Latency Audio Engine**: WASAPI with configurable buffer sizes (3-20ms)
-- **Real-Time Latency Monitoring**: Live display of audio latency with low CPU overhead
+- **Real-Time Latency Monitoring**: Live display of audio latency
 - **Real-time Audio Mixing**: Mix microphone input with sound effects
 - **Global Hotkeys**: Trigger sounds from anywhere with customizable hotkey combinations
 - **WPF Interface**: Modern design with real-time audio level monitoring
@@ -29,7 +31,6 @@ A low-latency Windows soundboard application that mixes microphone input with tr
 - Visual Studio 2022 (Community or higher)
 - .NET 8.0 SDK
 - Windows 11 SDK (10.0.19041.0+)
-- Windows App SDK 1.4+
 
 ### Runtime
 - Windows 10 or 11
@@ -37,35 +38,6 @@ A low-latency Windows soundboard application that mixes microphone input with tr
 - Administrator privileges (for global hotkeys)
 - **VB-Audio Virtual Cable** (recommended, free) - [Download Here](https://vb-audio.com/Cable/)
   - See [VBCABLE_SETUP.md](VBCABLE_SETUP.md) for detailed installation and configuration guide
-
-## Testing
-
-The project includes comprehensive unit and integration tests.
-
-### Running Tests
-```powershell
-# Run all tests
-dotnet test
-
-# Run with detailed output
-dotnet test --verbosity detailed
-
-# Run with code coverage
-dotnet test --collect:"XPlat Code Coverage"
-
-# Run only unit tests
-dotnet test --filter "FullyQualifiedName~Unit"
-
-# Run only integration tests
-dotnet test --filter "FullyQualifiedName~Integration"
-```
-
-### Test Coverage
-- **60+ Unit Tests**: Sound management, audio processing, hotkeys, configuration
-- **18+ Integration Tests**: Audio pipeline, performance benchmarks
-- **Coverage**: Models (95%), Services (80%), Core (70%), Helpers (100%)
-
-See [SimpleSoundboard.Tests/README.md](SimpleSoundboard.Tests/README.md) for detailed test documentation.
 
 ## Building the Project
 
@@ -166,7 +138,6 @@ Example structure:
   "sampleRate": 48000,
   "masterVolume": 1.0,
   "microphoneVolume": 1.0,
-  "useExclusiveMode": true,
   "soundItems": [
     {
       "id": "guid",
@@ -201,6 +172,19 @@ Hotkeys use Windows virtual key codes and modifier flags:
 
 Example: Ctrl+Shift+1 = `"modifiers": 6, "virtualKeyCode": 49`
 
+## Recent Updates
+
+### v0.1.0 - Initial Release
+- ✅ **Core Audio Engine**: WASAPI-based low-latency capture, playback, and real-time mixing
+- ✅ **Sound Management**: Add/remove sounds with per-sound volume control and 10-second duration limit
+- ✅ **Global Hotkeys**: Win32 API support with custom control and conflict detection
+- ✅ **VB-Cable Integration**: Automatic detection and auto-selection of "CABLE Input"
+- ✅ **Latency Control**: Configurable buffer sizes (3/5/10/20ms) with real-time monitoring
+- ✅ **Device Management**: Audio device enumeration with VB-Cable prioritization
+- ✅ **Configuration System**: JSON-based persistence for settings and sound library
+- ✅ **Audio Compatibility**: Automatic resampling to 48kHz and mono-to-stereo conversion
+- ✅ **Hotkey Reliability**: Proper registration and immediate UI reflection of changes
+
 ## Project Structure
 
 ```
@@ -229,29 +213,8 @@ SimpleSoundboard/
 └── Program.cs           # Main entry point
 ```
 
-## Recent Updates
-
-### v1.1 - VB-Cable Integration & Latency Optimization
-- ✅ VB-Cable automatic detection and setup
-- ✅ Configurable buffer sizes (3/5/10/20ms)
-- ✅ Real-time latency monitoring
-- ✅ Hotkey capture UI (click-to-set)
-- ✅ File browser dialog with audio filters
-- ✅ Microphone gain control (0-200%)
-- ✅ 10-second sound duration limit
-- ✅ Auto-resampling for format compatibility
-- ✅ WaveFormat mismatch fixes
-- ✅ Playback speed corrections
-
-### v1.0 - WPF Migration
-- ✅ Migrated from WinUI 3 to WPF for stability
-- ✅ Fixed DLL loading issues on Windows 11
-- ✅ WASAPI Shared mode for better compatibility
-- ✅ Observable SoundItem for real-time UI updates
-
 ## Future Enhancements
 
-- [ ] Exclusive mode WASAPI with fallback
 - [ ] Drag-and-drop file support
 - [ ] Sound preview playback
 - [ ] Volume meters per sound
@@ -309,7 +272,6 @@ MIT License - See LICENSE file for details
 ## Documentation
 
 - **[VBCABLE_SETUP.md](VBCABLE_SETUP.md)** - Complete VB-Cable installation, configuration, and troubleshooting guide
-- **[SimpleSoundboard.Tests/README.md](SimpleSoundboard.Tests/README.md)** - Unit and integration test documentation
 
 ## Credits
 
