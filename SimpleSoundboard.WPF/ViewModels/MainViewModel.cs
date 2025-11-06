@@ -17,6 +17,7 @@ public class MainViewModel : ObservableObject, IDisposable
     private readonly ConfigurationService _configService;
     private readonly VBCableManager _vbCableManager;
     private readonly Dispatcher _dispatcher;
+    private DispatcherTimer? _statusClearTimer;
 
     private bool _isAudioRunning;
     private float _audioLevel;
@@ -27,6 +28,7 @@ public class MainViewModel : ObservableObject, IDisposable
     private AudioDeviceInfo? _selectedInputDevice;
     private AudioDeviceInfo? _selectedOutputDevice;
     private int _selectedBufferSize = 240;
+    private bool _monitoringEnabled = true;
 
     public ObservableCollection<SoundItem> SoundItems { get; } = new();
     public ObservableCollection<AudioDeviceInfo> InputDevices { get; } = new();
@@ -76,6 +78,19 @@ public class MainViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _selectedBufferSize, value))
             {
                 _audioEngine.SetBufferSize(value);
+                ReinitializeAudio();
+            }
+        }
+    }
+
+    public bool MonitoringEnabled
+    {
+        get => _monitoringEnabled;
+        set
+        {
+            if (SetProperty(ref _monitoringEnabled, value))
+            {
+                _audioEngine.MonitoringEnabled = value;
                 ReinitializeAudio();
             }
         }
@@ -222,6 +237,14 @@ public class MainViewModel : ObservableObject, IDisposable
                 SelectedOutputDevice = OutputDevices.FirstOrDefault(d => d.DeviceId == config.SelectedOutputDeviceId);
             }
 
+            // Restore buffer size if valid
+            if (config.BufferSize > 0)
+            {
+                _selectedBufferSize = config.BufferSize;
+                _audioEngine.SetBufferSize(config.BufferSize);
+                OnPropertyChanged(nameof(SelectedBufferSize));
+            }
+
             StatusMessage = "Configuration loaded";
         }
         catch (Exception ex)
@@ -280,6 +303,7 @@ public class MainViewModel : ObservableObject, IDisposable
             {
                 SelectedInputDeviceId = SelectedInputDevice?.DeviceId ?? string.Empty,
                 SelectedOutputDeviceId = SelectedOutputDevice?.DeviceId ?? string.Empty,
+                BufferSize = _selectedBufferSize,
                 SoundItems = SoundItems.ToList()
             };
 
@@ -301,6 +325,7 @@ public class MainViewModel : ObservableObject, IDisposable
             {
                 _audioEngine.Stop();
                 IsAudioRunning = false;
+                AudioLevel = 0f; // Reset audio level bar to empty
                 StatusMessage = "Audio stopped";
             }
             else
@@ -322,6 +347,7 @@ public class MainViewModel : ObservableObject, IDisposable
         {
             StatusMessage = $"Error: {ex.Message}";
             IsAudioRunning = false;
+            AudioLevel = 0f; // Reset audio level bar to empty
         }
     }
 
@@ -331,19 +357,22 @@ public class MainViewModel : ObservableObject, IDisposable
         {
             try
             {
+                // Stop, reinitialize, and restart audio
+                _audioEngine.Stop();
                 _audioEngine.Initialize(SelectedInputDevice, SelectedOutputDevice, 48000, _selectedBufferSize);
+                _audioEngine.Start();
                 StatusMessage = "Audio reinitialized";
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Error reinitializing: {ex.Message}";
+                IsAudioRunning = false;
             }
         }
     }
 
     private void AddSound()
     {
-        // Open file browser dialog
         var openFileDialog = new Microsoft.Win32.OpenFileDialog
         {
             Title = "Select Sound File",
@@ -425,6 +454,12 @@ public class MainViewModel : ObservableObject, IDisposable
     {
         _dispatcher.Invoke(() =>
         {
+            // Only process hotkeys when audio is running
+            if (!IsAudioRunning)
+            {
+                return;
+            }
+            
             var sound = SoundItems.FirstOrDefault(s => s.Id == soundId);
             if (sound != null && sound.IsEnabled)
             {
@@ -432,6 +467,22 @@ public class MainViewModel : ObservableObject, IDisposable
                 sound.LastPlayed = DateTime.Now;
                 sound.PlayCount++;
                 StatusMessage = $"Playing: {sound.Name}";
+                
+                // Clear the "Playing" message after sound duration (max 10 seconds)
+                _statusClearTimer?.Stop();
+                _statusClearTimer = new DispatcherTimer
+                {
+                    Interval = TimeSpan.FromSeconds(10)
+                };
+                _statusClearTimer.Tick += (s, e) =>
+                {
+                    _statusClearTimer?.Stop();
+                    if (StatusMessage.StartsWith("Playing:"))
+                    {
+                        StatusMessage = "Ready";
+                    }
+                };
+                _statusClearTimer.Start();
             }
         });
     }
