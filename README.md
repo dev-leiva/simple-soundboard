@@ -7,15 +7,19 @@ A low-latency Windows soundboard application that mixes microphone input with tr
 ## Features
 
 - **VB-Cable Integration**: Automatic detection and setup of VB-Audio Virtual Cable
+- **Dual Audio Output**: Sounds play on both VB-Cable (for Discord/OBS) and your main speakers (for monitoring)
+- **Visual Audio State**: Color-coded Start/Stop button (Green=OFF, Red=ON) with sound list graying when inactive
 - **Low-Latency Audio Engine**: WASAPI with configurable buffer sizes (3-20ms)
-- **Real-Time Latency Monitoring**: Live display of audio latency
+- **Real-Time Latency Monitoring**: Live display of audio latency with low CPU overhead
+- **Accurate Audio Level Display**: Shows full mixer output (microphone + sounds), not just microphone
 - **Real-time Audio Mixing**: Mix microphone input with sound effects
-- **Global Hotkeys**: Trigger sounds from anywhere with customizable hotkey combinations
-- **WPF Interface**: Modern design with real-time audio level monitoring
-- **JSON Configuration**: Persistent storage of sound library and settings
+- **Global Hotkeys**: Trigger sounds from anywhere with customizable hotkey combinations (disabled when audio is off)
+- **WPF Interface**: Modern design with clear visual feedback
+- **JSON Configuration**: Persistent storage of sound library, settings, and buffer size
 - **Microphone Gain Control**: Adjustable gain from 0-200%
 - **Duration Limiting**: Automatic 10-second sound limit with graceful handling
 - **Hotkey Capture UI**: Click-to-set hotkey controls with visual feedback
+- **Auto-clearing Status**: "Playing" messages automatically clear after 10 seconds
 
 ## Technology Stack
 
@@ -93,15 +97,23 @@ Start-Process -FilePath ".\SimpleSoundboard\bin\x64\Release\net8.0-windows10.0.1
    - Higher = more stable, lower CPU usage
    - "Current Latency" displays real-time measurement
 
-4. **Adjust Microphone Gain**
+4. **Configure Monitoring** (Optional)
+   - Check "Enable Monitoring" to hear sounds on your speakers/headphones
+   - When enabled, sounds play on both VB-Cable AND your default Windows output
+   - Disable if you only want sounds sent to VB-Cable (Discord/OBS)
+   - Monitoring is enabled by default
+
+5. **Adjust Microphone Gain**
    - Use "Microphone Gain" slider (0-200%, default 100%)
    - Real-time audio level shown in progress bar
 
-5. **Start Audio Engine**
-   - Click "Start/Stop Audio" button
-   - Progress bar shows microphone input level
+6. **Start Audio Engine**
+   - Click the **green "▶ Start Audio"** button
+   - Button turns **red "⬛ Stop Audio"** when running
+   - Progress bar shows full mixer output level (microphone + sounds)
+   - Sound items list grays out when audio is OFF
 
-6. **Add Sound Items**
+7. **Add Sound Items**
    - Click "Add Sound" button
    - Browse for audio file (MP3, WAV, OGG, FLAC, M4A, WMA)
    - Sound name auto-populates from filename (editable)
@@ -109,15 +121,19 @@ Start-Process -FilePath ".\SimpleSoundboard\bin\x64\Release\net8.0-windows10.0.1
    - Adjust volume slider (0-100%)
    - Maximum sound duration: 10 seconds
 
-7. **Save Configuration**
+8. **Save Configuration**
    - Click "Save Configuration" to persist your sound library
    - Configuration saved to: `%LOCALAPPDATA%\SimpleSoundboard\config.json`
 
-8. **Trigger Sounds**
-   - With audio engine running, press configured hotkeys
-   - Sounds will mix with microphone input and output to selected device
+9. **Trigger Sounds**
+   - **Audio must be running** (red Stop button visible)
+   - Press configured hotkeys to play sounds
+   - Sounds will mix with microphone input and output to VB-Cable
+   - If monitoring enabled, sounds also play on your speakers/headphones
+   - Status shows "Playing: sound_name" and auto-clears after 10 seconds
+   - Hotkeys are ignored when audio is OFF
 
-9. **Use with Discord/OBS**
+10. **Use with Discord/OBS**
    - **Discord**: Settings → Voice & Video → Input Device → "CABLE Output"
    - **OBS**: Add "Audio Input Capture" → Device → "CABLE Output"
    - See [VBCABLE_SETUP.md](VBCABLE_SETUP.md) for detailed setup
@@ -174,6 +190,22 @@ Example: Ctrl+Shift+1 = `"modifiers": 6, "virtualKeyCode": 49`
 
 ## Recent Updates
 
+### v0.3.0 - UI/UX Improvements & Bug Fixes (Latest)
+- ✅ **Visual Audio State Indicator**: Green/Red Start/Stop button, grayed-out sounds when OFF
+- ✅ **Improved Audio Level Display**: Now shows full mixer output (mic + sounds)
+- ✅ **Auto-clearing Status Messages**: "Playing" messages clear after 10 seconds
+- ✅ **Buffer Size Persistence**: Latency setting now saved in configuration
+- ✅ **Fixed Audio Reinitialization**: Settings changes no longer require manual restart
+- ✅ **Fixed Configuration Loading**: Saved sounds now play correctly on startup
+- ✅ **Fixed Null Reference Crash**: Resolved crash when adding sounds
+- ✅ **Hotkeys Disabled When OFF**: Prevents confusion and unwanted play count increments
+
+### v0.2.0 - Dual Audio Output (Monitoring)
+- ✅ **Dual Output System**: Sounds play on both VB-Cable AND main speakers
+- ✅ **Enable Monitoring Checkbox**: Toggle monitoring on/off
+- ✅ **Smart Duplicate Detection**: Skips duplicate output when VB-Cable is default device
+- ✅ **Zero Additional Latency**: Parallel audio streams
+
 ### v0.1.0 - Initial Release
 - ✅ **Core Audio Engine**: WASAPI-based low-latency capture, playback, and real-time mixing
 - ✅ **Sound Management**: Add/remove sounds with per-sound volume control and 10-second duration limit
@@ -183,7 +215,6 @@ Example: Ctrl+Shift+1 = `"modifiers": 6, "virtualKeyCode": 49`
 - ✅ **Device Management**: Audio device enumeration with VB-Cable prioritization
 - ✅ **Configuration System**: JSON-based persistence for settings and sound library
 - ✅ **Audio Compatibility**: Automatic resampling to 48kHz and mono-to-stereo conversion
-- ✅ **Hotkey Reliability**: Proper registration and immediate UI reflection of changes
 
 ## Project Structure
 
