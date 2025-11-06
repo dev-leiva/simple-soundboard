@@ -183,7 +183,7 @@ Tests are designed to run in CI/CD environments:
 
 1. **Audio Hardware Tests**: Require physical devices, skipped by default
 2. **Win32 Hotkey Tests**: Cannot register hotkeys in CI environment
-3. **UI Tests**: WinUI 3 UI tests not yet implemented
+3. **UI Tests**: WPF UI tests not yet implemented
 4. **Performance Tests**: May vary based on system specs
 
 ## Troubleshooting
@@ -209,7 +209,7 @@ Remove-Item "$env:LOCALAPPDATA\SimpleSoundboard\config.json"
 ## Future Test Additions
 
 Planned test coverage improvements:
-- [ ] UI automation tests with WinAppDriver
+- [ ] UI automation tests for WPF
 - [ ] Virtual audio driver mock tests
 - [ ] Network/streaming integration tests
 - [ ] Stress tests for extended operation
