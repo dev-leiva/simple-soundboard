@@ -7,6 +7,7 @@ SimpleSoundboard now features seamless VB-Cable integration for virtual audio ro
 ## Features
 
 - **Automatic VB-Cable Detection**: Detects and auto-selects "CABLE Input" when available
+- **Dual Audio Output**: Sounds play on both VB-Cable AND your speakers/headphones (optional)
 - **Manual Device Selection**: Can still select any physical audio output if preferred
 - **Low-Latency Optimization**: Configurable buffer sizes (3ms, 5ms, 10ms, 20ms)
 - **Real-Time Latency Monitoring**: Live display of current audio latency
@@ -146,19 +147,26 @@ SimpleSoundboard can still output to physical devices:
 
 ### Monitoring Your Mix
 
-If you want to hear what you're sending:
+SimpleSoundboard has built-in monitoring support that's easier than external solutions:
 
-**Option 1: VoiceMeeter** (Recommended for advanced users)
+**Option 1: SimpleSoundboard Built-in Monitoring** (Recommended)
+1. Check "Enable Monitoring" in SimpleSoundboard
+2. Sounds will play on both VB-Cable AND your default Windows output
+3. Zero additional latency
+4. No echo issues (only sounds are monitored, not microphone)
+5. Can be toggled on/off anytime
+
+**Option 2: VoiceMeeter** (Advanced users)
 - Download from: https://vb-audio.com/Voicemeeter/
-- Provides full routing matrix with monitoring
-- More complex setup, better control
+- Provides full routing matrix with advanced monitoring
+- More complex setup, better control for multiple applications
 
-**Option 2: Windows "Listen to this device"**
+**Option 3: Windows "Listen to this device"** (Not recommended)
 1. Right-click speaker icon → Sounds
 2. Recording tab → CABLE Output → Properties
 3. Listen tab → Check "Listen to this device"
 4. Select your playback device
-5. Warning: Adds latency
+5. Warning: Adds significant latency, may cause echo
 
 ### Multiple Virtual Cables
 
