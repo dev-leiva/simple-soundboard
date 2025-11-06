@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SimpleSoundboard.Core\SimpleSoundboard.Core.csproj" />
+    <ProjectReference Include="..\SimpleSoundboard.WPF\SimpleSoundboard.WPF.csproj" />
   </ItemGroup>
 
   <ItemGroup>
