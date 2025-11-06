@@ -4,6 +4,88 @@ All notable changes to **SimpleSoundboard** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.3.0] - UI/UX Improvements & Bug Fixes
+
+Significant improvements to user experience, visual feedback, and several critical bug fixes.
+
+### Added
+
+* **Visual Audio State Indicator:**
+    * Start/Stop button now shows **green (▶ Start Audio)** when OFF and **red (⬛ Stop Audio)** when ON.
+    * Larger, bolder button with clear visual feedback.
+    * Sound items list grayed out (40% opacity) when audio is OFF.
+    * Clear indication that audio system must be running for sounds to play.
+* **Status Message Auto-Clear:** "Playing: sound_name" message now automatically clears after 10 seconds.
+* **Buffer Size Persistence:** Buffer size (latency) setting now persists in configuration file.
+
+### Changed
+
+* **Audio Level Monitoring:**
+    * Changed from microphone-only to **full mixer output monitoring** (microphone + sounds).
+    * Uses `MeteringSampleProvider` for accurate level display.
+    * Bar is completely empty (0%) when audio is stopped.
+* **Audio Reinitialization:** Now properly stops and restarts audio engine when changing settings.
+    * Buffer size changes work without manual restart.
+    * Output device changes work without manual restart.
+    * Monitoring toggle works without manual restart.
+* **Hotkey Behavior:** Hotkeys are now **disabled when audio is OFF**.
+    * Prevents confusion when audio system isn't running.
+    * Play counts only increment when audio is actually running.
+
+### Fixed
+
+* **Critical: Saved Configuration Loading:** Sounds from saved configuration now load correctly on startup.
+    * Fixed null `_mixerFormat` issue by using default format (48kHz stereo) before initialization.
+    * Sounds now play immediately after loading configuration and starting audio.
+* **Critical: Null Reference Exception:** Fixed crash when adding sounds due to null WaveFormat access.
+    * Added proper null checks in resampling logic.
+* **Audio Reinitialization:** Fixed issue where changing settings required manual audio restart.
+    * Now automatically stops, reinitializes, and restarts audio.
+* **Audio Level Display:** Bar no longer shows residual 2% when audio is off.
+    * Properly resets to 0 when stopping audio or on error.
+
+### Technical Details
+
+* AudioEngine: Added `MeteringSampleProvider` wrapper for mixer output monitoring.
+* AudioEngine: `LoadSoundAsync` now uses default format fallback: `_mixerFormat ?? WaveFormat.CreateIeeeFloatWaveFormat(48000, 2)`.
+* MainViewModel: `ReinitializeAudio()` now calls Stop() → Initialize() → Start() sequence.
+* MainViewModel: Added `AudioLevel = 0f` when stopping audio.
+* MainViewModel: Added `OnHotkeyPressed` early return when `!IsAudioRunning`.
+* MainViewModel: Added `DispatcherTimer` for status message auto-clear.
+* AppConfiguration: `BufferSize` property now saved and loaded from config.
+* MainWindow: Start/Stop button styled with DataTriggers for green/red states.
+* MainWindow: Sound items list opacity controlled by `IsAudioRunning` binding.
+
+---
+
+## [v0.2.0] - Dual Audio Output (Monitoring)
+
+Added monitoring support allowing users to hear sounds on their speakers/headphones while simultaneously sending audio to VB-Cable.
+
+### Added
+
+* **Dual Audio Output System:**
+    * Sounds now play on both **VB-Cable AND user's main speakers/headphones**.
+    * "Enable Monitoring" checkbox in UI (enabled by default).
+    * Automatic detection when output device matches Windows default (skips duplicate output).
+    * **Only sounds are monitored** (not microphone input to prevent echo).
+    * Zero additional latency for monitoring.
+    * Independent mixer for monitor output with graceful error handling.
+* **Unit Tests:** Added comprehensive test suite with 73 tests covering AudioEngine monitoring functionality.
+
+### Changed
+
+* AudioEngine now manages two output streams: main output (VB-Cable) and monitor output (default device).
+* Monitor output initialization failures are non-critical (app continues without monitoring).
+
+### Technical Details
+
+* AudioEngine: Added `_monitorOutput`, `_monitorMixer`, `MonitoringEnabled` property.
+* MainViewModel: Added `MonitoringEnabled` property with audio reinitialization.
+* MainWindow: Added "Enable Monitoring" checkbox with tooltip.
+
+---
+
 ## [v0.1.0] - Initial Release
 
 This release establishes the core functionality, including the low-latency audio engine, sound management, global hotkey support, and integration with the VB-Cable virtual device.
