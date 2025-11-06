@@ -15,6 +15,7 @@ Significant improvements to user experience, visual feedback, and several critic
     * Larger, bolder button with clear visual feedback.
     * Sound items list grayed out (40% opacity) when audio is OFF.
     * Clear indication that audio system must be running for sounds to play.
+* **App Icon in UI:** Application icon now displayed in top-right corner of header (256x256 pixels).
 * **Status Message Auto-Clear:** "Playing: sound_name" message now automatically clears after 10 seconds.
 * **Buffer Size Persistence:** Buffer size (latency) setting now persists in configuration file.
 

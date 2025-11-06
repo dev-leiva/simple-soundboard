@@ -9,6 +9,7 @@ A low-latency Windows soundboard application that mixes microphone input with tr
 - **VB-Cable Integration**: Automatic detection and setup of VB-Audio Virtual Cable
 - **Dual Audio Output**: Sounds play on both VB-Cable (for Discord/OBS) and your main speakers (for monitoring)
 - **Visual Audio State**: Color-coded Start/Stop button (Green=OFF, Red=ON) with sound list graying when inactive
+- **Polished UI**: Application icon displayed in header for professional appearance
 - **Low-Latency Audio Engine**: WASAPI with configurable buffer sizes (3-20ms)
 - **Real-Time Latency Monitoring**: Live display of audio latency with low CPU overhead
 - **Accurate Audio Level Display**: Shows full mixer output (microphone + sounds), not just microphone
@@ -192,6 +193,7 @@ Example: Ctrl+Shift+1 = `"modifiers": 6, "virtualKeyCode": 49`
 
 ### v0.3.0 - UI/UX Improvements & Bug Fixes (Latest)
 - ✅ **Visual Audio State Indicator**: Green/Red Start/Stop button, grayed-out sounds when OFF
+- ✅ **App Icon in UI**: Application icon displayed in top-right corner for polished look
 - ✅ **Improved Audio Level Display**: Now shows full mixer output (mic + sounds)
 - ✅ **Auto-clearing Status Messages**: "Playing" messages clear after 10 seconds
 - ✅ **Buffer Size Persistence**: Latency setting now saved in configuration
