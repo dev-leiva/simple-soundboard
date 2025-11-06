@@ -53,10 +53,42 @@
 
             <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" 
                         Orientation="Horizontal" Margin="0,15,0,0">
-                <Button Content="Start/Stop Audio"
-                        Command="{Binding StartStopAudioCommand}"
-                        MinWidth="120" Margin="0,0,10,0"
-                        Padding="10,5"/>
+                <Button Command="{Binding StartStopAudioCommand}"
+                        MinWidth="140" Margin="0,0,10,0"
+                        Padding="15,8"
+                        FontWeight="Bold"
+                        FontSize="14">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Background" Value="#28A745"/>
+                            <Setter Property="Foreground" Value="White"/>
+                            <Setter Property="Content" Value="▶ Start Audio"/>
+                            <Setter Property="BorderBrush" Value="#28A745"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="4">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsAudioRunning}" Value="True">
+                                    <Setter Property="Background" Value="#DC3545"/>
+                                    <Setter Property="BorderBrush" Value="#DC3545"/>
+                                    <Setter Property="Content" Value="⬛ Stop Audio"/>
+                                </DataTrigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Opacity" Value="0.8"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
                 <Button Content="Refresh Devices"
                         Command="{Binding RefreshDevicesCommand}"
                         Margin="0,0,10,0" Padding="10,5"/>
@@ -108,10 +140,14 @@
                 
                 <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="10,0,0,10">
                     <TextBlock Text="Current Latency: " FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <TextBlock VerticalAlignment="Center" Margin="5,0,0,0">
+                    <TextBlock VerticalAlignment="Center" Margin="5,0,10,0">
                         <Run Text="{Binding CurrentLatency, StringFormat='{}{0:F2}'}" />
                         <Run Text="ms"/>
                     </TextBlock>
+                    <CheckBox Content="Enable Monitoring" 
+                              IsChecked="{Binding MonitoringEnabled}"
+                              VerticalAlignment="Center"
+                              ToolTip="Play sounds on your main speakers/headphones in addition to VB-Cable"/>
                 </StackPanel>
                 
                 <ProgressBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
@@ -132,7 +168,17 @@
                 <TextBlock Text="Sound Items" 
                            FontSize="20" FontWeight="SemiBold"
                            VerticalAlignment="Center"
-                           Margin="0,0,10,0"/>
+                           Margin="0,0,10,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsAudioRunning}" Value="False">
+                                    <Setter Property="Opacity" Value="0.5"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
                 <Button Content="Add Sound" 
                         Command="{Binding AddSoundCommand}"
                         Padding="10,5"/>
@@ -140,6 +186,15 @@
 
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                 <ItemsControl ItemsSource="{Binding SoundItems}">
+                    <ItemsControl.Style>
+                        <Style TargetType="ItemsControl">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsAudioRunning}" Value="False">
+                                    <Setter Property="Opacity" Value="0.4"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ItemsControl.Style>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border Background="#F5F5F5"
