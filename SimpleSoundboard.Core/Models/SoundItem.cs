@@ -15,6 +15,7 @@ public class SoundItem : INotifyPropertyChanged
     private bool _isEnabled = true;
     private DateTime _lastPlayed;
     private int _playCount;
+    private double _durationSeconds;
 
     public Guid Id { get => _id; set { _id = value; OnPropertyChanged(); } }
     public string Name { get => _name; set { _name = value; OnPropertyChanged(); } }
@@ -24,6 +25,7 @@ public class SoundItem : INotifyPropertyChanged
     public bool IsEnabled { get => _isEnabled; set { _isEnabled = value; OnPropertyChanged(); } }
     public DateTime LastPlayed { get => _lastPlayed; set { _lastPlayed = value; OnPropertyChanged(); } }
     public int PlayCount { get => _playCount; set { _playCount = value; OnPropertyChanged(); } }
+    public double DurationSeconds { get => _durationSeconds; set { _durationSeconds = value; OnPropertyChanged(); } }
 
     public bool IsValid()
     {
