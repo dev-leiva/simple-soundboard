@@ -15,6 +15,8 @@ public class HotkeyManager : IDisposable
 
     public event EventHandler<Guid>? HotkeyPressed;
     public event EventHandler<string>? ErrorOccurred;
+    
+    public bool IsInitialized => _windowHandle != IntPtr.Zero;
 
     public void Initialize(IntPtr windowHandle)
     {
