@@ -8,19 +8,24 @@ A low-latency Windows soundboard application that mixes microphone input with tr
 
 - **VB-Cable Integration**: Automatic detection and setup of VB-Audio Virtual Cable
 - **Dual Audio Output**: Sounds play on both VB-Cable (for Discord/OBS) and your main speakers (for monitoring)
+- **Stop-and-Play Behavior**: New sounds automatically stop currently playing audio for clean playback
+- **Audio Normalization**: Automatic 0 dB peak normalization ensures consistent volume across all sounds
+- **Global Sound Volume**: Master volume control (0-200%) for all sound effects
+- **Table-Style UI**: Compact sound library with Play, Name, Duration, Hotkey, Volume, Play Count columns
 - **Visual Audio State**: Color-coded Start/Stop button (Green=OFF, Red=ON) with sound list graying when inactive
+- **Stop All Sounds**: Orange button to immediately stop all playing audio (microphone continues)
 - **Polished UI**: Application icon displayed in header for professional appearance
 - **Low-Latency Audio Engine**: WASAPI with configurable buffer sizes (3-20ms)
 - **Real-Time Latency Monitoring**: Live display of audio latency with low CPU overhead
 - **Accurate Audio Level Display**: Shows full mixer output (microphone + sounds), not just microphone
 - **Real-time Audio Mixing**: Mix microphone input with sound effects
 - **Global Hotkeys**: Trigger sounds from anywhere with customizable hotkey combinations (disabled when audio is off)
-- **WPF Interface**: Modern design with clear visual feedback
+- **WPF Interface**: Modern design with clear visual feedback and percentage labels on sliders
 - **JSON Configuration**: Persistent storage of sound library, settings, and buffer size
-- **Microphone Gain Control**: Adjustable gain from 0-200%
-- **Duration Limiting**: Automatic 10-second sound limit with graceful handling
+- **Microphone Gain Control**: Adjustable gain from 0-200% with percentage display
+- **Extended Duration**: Support for audio files up to 30 seconds
 - **Hotkey Capture UI**: Click-to-set hotkey controls with visual feedback
-- **Auto-clearing Status**: "Playing" messages automatically clear after 10 seconds
+- **Auto-clearing Status**: "Playing" messages automatically clear after 30 seconds
 
 ## Technology Stack
 
@@ -104,8 +109,9 @@ Start-Process -FilePath ".\SimpleSoundboard\bin\x64\Release\net8.0-windows10.0.1
    - Disable if you only want sounds sent to VB-Cable (Discord/OBS)
    - Monitoring is enabled by default
 
-5. **Adjust Microphone Gain**
-   - Use "Microphone Gain" slider (0-200%, default 100%)
+5. **Adjust Volumes**
+   - **Microphone Gain**: 0-200%, default 100% (with percentage display)
+   - **Global Sound Volume**: 0-200%, default 100% (affects all sounds)
    - Real-time audio level shown in progress bar
 
 6. **Start Audio Engine**
@@ -117,21 +123,25 @@ Start-Process -FilePath ".\SimpleSoundboard\bin\x64\Release\net8.0-windows10.0.1
 7. **Add Sound Items**
    - Click "Add Sound" button
    - Browse for audio file (MP3, WAV, OGG, FLAC, M4A, WMA)
-   - Sound name auto-populates from filename (editable)
+   - Sound appears in table with duration automatically displayed
+   - Edit name directly in table
    - Click hotkey field and press desired key combination
-   - Adjust volume slider (0-100%)
-   - Maximum sound duration: 10 seconds
+   - Click volume percentage to adjust (0-100%)
+   - Maximum sound duration: 30 seconds
+   - All sounds automatically normalized to 0 dB
 
 8. **Save Configuration**
    - Click "Save Configuration" to persist your sound library
    - Configuration saved to: `%LOCALAPPDATA%\SimpleSoundboard\config.json`
 
-9. **Trigger Sounds**
+9. **Play & Stop Sounds**
    - **Audio must be running** (red Stop button visible)
-   - Press configured hotkeys to play sounds
-   - Sounds will mix with microphone input and output to VB-Cable
+   - **Trigger via hotkey** OR **click green play button (▶)** in table
+   - New sound automatically stops any currently playing sound
+   - Click **"Stop All Sounds"** (orange button) to stop playback instantly
+   - Sounds mix with microphone input and output to VB-Cable
    - If monitoring enabled, sounds also play on your speakers/headphones
-   - Status shows "Playing: sound_name" and auto-clears after 10 seconds
+   - Status shows "Playing: sound_name" and auto-clears after 30 seconds
    - Hotkeys are ignored when audio is OFF
 
 10. **Use with Discord/OBS**
@@ -191,11 +201,28 @@ Example: Ctrl+Shift+1 = `"modifiers": 6, "virtualKeyCode": 49`
 
 ## Recent Updates
 
-### v0.3.0 - UI/UX Improvements & Bug Fixes (Latest)
+### v0.4.0 - Major UX Overhaul & Audio Enhancements (Latest)
+- ✅ **Stop-and-Play Behavior**: Sounds automatically stop when new sound triggered (no overlap)
+- ✅ **Audio Normalization**: All sounds normalized to 0 dB for consistent volume
+- ✅ **Global Sound Volume**: Master volume control (0-200%, default 100%)
+- ✅ **Table-Style UI**: Compact sound library with column headers and inline editing
+- ✅ **Volume Popup Slider**: Click volume percentage to adjust with popup slider
+- ✅ **Stop All Sounds Button**: Orange button to stop all playing audio instantly
+- ✅ **Percentage Labels**: Sliders now show percentage values for clarity
+- ✅ **Extended Duration**: Audio files up to 30 seconds supported (was 10s)
+- ✅ **Duration Display**: Sound duration shown in table (e.g., "5.2s")
+- ✅ **Manual Play Button**: Green play button (▶) in table for ad-hoc playback
+- ✅ **Unsaved Changes Detection**: Prompts to save configuration changes on exit
+- ✅ **Auto-Save Play Counts**: Play statistics always saved, even if you don't save config
+- ✅ **Graceful Shutdown**: Audio stops automatically on exit, no lingering processes
+- ✅ **Remove Confirmation**: Confirmation dialog prevents accidental sound deletion
+- ✅ **Fixed Hotkey Bug**: All hotkeys now work correctly after restart
+
+### v0.3.0 - UI/UX Improvements & Bug Fixes
 - ✅ **Visual Audio State Indicator**: Green/Red Start/Stop button, grayed-out sounds when OFF
 - ✅ **App Icon in UI**: Application icon displayed in top-right corner for polished look
 - ✅ **Improved Audio Level Display**: Now shows full mixer output (mic + sounds)
-- ✅ **Auto-clearing Status Messages**: "Playing" messages clear after 10 seconds
+- ✅ **Auto-clearing Status Messages**: "Playing" messages clear after 30 seconds
 - ✅ **Buffer Size Persistence**: Latency setting now saved in configuration
 - ✅ **Fixed Audio Reinitialization**: Settings changes no longer require manual restart
 - ✅ **Fixed Configuration Loading**: Saved sounds now play correctly on startup
