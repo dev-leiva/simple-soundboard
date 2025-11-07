@@ -4,6 +4,72 @@ All notable changes to **SimpleSoundboard** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.4.0] - Major UX Overhaul & Audio Enhancements
+
+Significant improvements to audio playback behavior, UI redesign with table layout, and extended audio capabilities.
+
+### Added
+
+* **Stop-and-Play Audio Behavior:** When a new sound is triggered, any currently playing sound is automatically stopped.
+    * Same sound can be retriggered by pressing its hotkey again.
+    * Prevents audio overlap for cleaner sound playback.
+* **Stop All Sounds Button & Hotkey:** Orange "Stop All Sounds" button to immediately stop all playing audio.
+    * Microphone continues playing (only sounds are stopped).
+    * Programmable hotkey support for stopping sounds.
+* **Audio Normalization:** All sounds are automatically normalized to 0 dB (peak normalization).
+    * Ensures consistent volume levels across different audio files.
+    * Prevents sounds from being too quiet or too loud.
+* **Global Sound Volume Slider:** Master volume control (0-200%, default 100%) for all sound effects.
+    * Acts as multiplier on individual sound volumes.
+    * Allows quick adjustment of all sounds without changing individual settings.
+* **Table-Style Sound Items UI:** Completely redesigned sound library interface.
+    * Compact table layout with columns: Play button, Name, Duration, Hotkey, Volume, Play Count, Remove.
+    * Shows sound duration in seconds.
+    * Green play button (▶) for manual playback.
+    * Inline name editing.
+    * Click-to-adjust volume display (shows percentage).
+    * More sounds visible at once.
+* **Percentage Labels on Sliders:** Microphone Gain and Global Sound Volume sliders now show percentage values.
+* **Extended Audio Duration:** Maximum sound length increased from 10 seconds to **30 seconds**.
+
+### Changed
+
+* **Audio Engine:** Tracks currently playing sounds for stop-and-play behavior.
+* **Sound Volume Display:** Changed from slider to percentage text in table (click to adjust).
+* **UI Layout:** Reorganized controls - Global Sound Volume added, VB-Cable status moved for better space utilization.
+
+### Fixed
+
+* **Graceful Shutdown**: Application now properly stops audio and saves play counts before exiting.
+    * Audio is stopped automatically when closing the window
+    * Play counts are always saved, even if user chooses not to save configuration changes
+    * All background threads are terminated to prevent lingering processes
+* **Hotkey Registration Race Condition**: Fixed bug where only the first sound's hotkey would work after restarting with saved configuration.
+    * Hotkeys are now properly registered after async configuration loading completes
+* **Remove Confirmation**: Added confirmation dialog when removing sounds to prevent accidental deletion.
+* **Volume Popup Display**: Fixed volume percentage display in table (now shows 0%-100% instead of 0.0-1.0).
+
+### Technical Details
+
+* AudioEngine: Added `StopAllSounds()`, `IsSoundPlaying()`, `GlobalSoundVolume` property.
+* AudioEngine: Implemented sound tracking with `_playingSounds` dictionary and `_currentlyPlayingSoundId`.
+* AudioEngine: Added peak normalization in `CachedSound` constructor.
+* AudioEngine: `CachedSoundSampleProvider` now has `Stop()` method and `_stopped` flag.
+* MainViewModel: Added `StopAllSoundsCommand`, `PlaySoundCommand`, `GlobalSoundVolume` property.
+* MainViewModel: Added `PlaySoundInternal()` helper for unified sound playback.
+* MainViewModel: Added `SavePlayCountsAsync()` to persist play statistics on exit.
+* MainViewModel: Added `StopAudio()` public method for clean shutdown.
+* MainViewModel: Added `HasUnsavedChanges` tracking with exclusion of volume and play count changes.
+* MainViewModel: Added `PromptSaveChangesAsync()` for exit confirmation dialog.
+* HotkeyManager: Added `IsInitialized` property to check initialization state.
+* HotkeyManager: Added `RegisterAllHotkeys()` helper method.
+* SoundItem: Added `DurationSeconds` property.
+* MainWindow: Complete table-style UI with fixed column widths for consistent alignment.
+* MainWindow: Added `OnClosing` handler to stop audio and prompt for unsaved changes.
+* App.xaml: Set `ShutdownMode="OnMainWindowClose"` for proper application termination.
+
+---
+
 ## [v0.3.0] - UI/UX Improvements & Bug Fixes
 
 Significant improvements to user experience, visual feedback, and several critical bug fixes.
