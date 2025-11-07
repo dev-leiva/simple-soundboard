@@ -22,6 +22,7 @@ public class MainViewModel : ObservableObject, IDisposable
     private bool _isAudioRunning;
     private float _audioLevel;
     private float _microphoneGain = 1.0f;
+    private float _globalSoundVolume = 1.0f;
     private float _currentLatency = 0f;
     private string _statusMessage = "Ready";
     private string _vbCableStatus = "Checking...";
@@ -29,6 +30,9 @@ public class MainViewModel : ObservableObject, IDisposable
     private AudioDeviceInfo? _selectedOutputDevice;
     private int _selectedBufferSize = 240;
     private bool _monitoringEnabled = true;
+    private Guid? _currentlyPlayingSoundId = null;
+    private bool _hasUnsavedChanges = false;
+    private string _lastSavedConfigJson = string.Empty;
 
     public ObservableCollection<SoundItem> SoundItems { get; } = new();
     public ObservableCollection<AudioDeviceInfo> InputDevices { get; } = new();
@@ -54,6 +58,18 @@ public class MainViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _microphoneGain, value))
             {
                 _audioEngine.SetMicrophoneGain(value);
+            }
+        }
+    }
+    
+    public float GlobalSoundVolume
+    {
+        get => _globalSoundVolume;
+        set
+        {
+            if (SetProperty(ref _globalSoundVolume, value))
+            {
+                _audioEngine.GlobalSoundVolume = value;
             }
         }
     }
@@ -132,6 +148,14 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand RefreshDevicesCommand { get; }
     public ICommand SaveConfigurationCommand { get; }
     public ICommand ShowVBCableSetupCommand { get; }
+    public ICommand StopAllSoundsCommand { get; }
+    public ICommand PlaySoundCommand { get; }
+    
+    public bool HasUnsavedChanges
+    {
+        get => _hasUnsavedChanges;
+        private set => SetProperty(ref _hasUnsavedChanges, value);
+    }
 
     public MainViewModel()
     {
@@ -156,6 +180,8 @@ public class MainViewModel : ObservableObject, IDisposable
             RefreshDevicesCommand = new RelayCommand(RefreshDevices);
             SaveConfigurationCommand = new RelayCommand(async () => await SaveConfigurationAsync());
             ShowVBCableSetupCommand = new RelayCommand(ShowVBCableSetup);
+            StopAllSoundsCommand = new RelayCommand(StopAllSounds);
+            PlaySoundCommand = new RelayCommand<SoundItem>(PlaySound);
 
             // Safely attempt to initialize devices and config
             try
@@ -190,7 +216,11 @@ public class MainViewModel : ObservableObject, IDisposable
     public void InitializeHotkeys(IntPtr windowHandle)
     {
         _hotkeyManager.Initialize(windowHandle);
-        
+        RegisterAllHotkeys();
+    }
+    
+    private void RegisterAllHotkeys()
+    {
         foreach (var sound in SoundItems.Where(s => s.Hotkey != null))
         {
             _hotkeyManager.RegisterHotkey(sound.Id, sound.Hotkey!);
@@ -212,12 +242,21 @@ public class MainViewModel : ObservableObject, IDisposable
             {
                 SoundItems.Add(sound);
                 
-                // Subscribe to property changes for hotkey registration
+                // Subscribe to property changes for hotkey registration and unsaved changes
                 sound.PropertyChanged += (s, e) =>
                 {
                     if (e.PropertyName == nameof(SoundItem.Hotkey) && s is SoundItem snd)
                     {
                         RegisterHotkeyForSound(snd);
+                    }
+                    
+                    // Track changes (exclude Volume and PlayCount)
+                    if (e.PropertyName != nameof(SoundItem.Volume) && 
+                        e.PropertyName != nameof(SoundItem.PlayCount) &&
+                        e.PropertyName != nameof(SoundItem.LastPlayed) &&
+                        e.PropertyName != nameof(SoundItem.DurationSeconds))
+                    {
+                        CheckForUnsavedChanges();
                     }
                 };
                 
@@ -226,6 +265,9 @@ public class MainViewModel : ObservableObject, IDisposable
                     await _audioEngine.LoadSoundAsync(sound);
                 }
             }
+            
+            // Store the initial state
+            _lastSavedConfigJson = GetCurrentConfigurationJson();
 
             if (!string.IsNullOrEmpty(config.SelectedInputDeviceId))
             {
@@ -243,6 +285,12 @@ public class MainViewModel : ObservableObject, IDisposable
                 _selectedBufferSize = config.BufferSize;
                 _audioEngine.SetBufferSize(config.BufferSize);
                 OnPropertyChanged(nameof(SelectedBufferSize));
+            }
+            
+            // Register hotkeys if HotkeyManager is already initialized
+            if (_hotkeyManager.IsInitialized)
+            {
+                RegisterAllHotkeys();
             }
 
             StatusMessage = "Configuration loaded";
@@ -308,11 +356,106 @@ public class MainViewModel : ObservableObject, IDisposable
             };
 
             var success = await _configService.SaveConfigurationAsync(config);
-            StatusMessage = success ? "Configuration saved" : "Failed to save configuration";
+            if (success)
+            {
+                _lastSavedConfigJson = GetCurrentConfigurationJson();
+                HasUnsavedChanges = false;
+                StatusMessage = "Configuration saved";
+            }
+            else
+            {
+                StatusMessage = "Failed to save configuration";
+            }
         }
         catch (Exception ex)
         {
             StatusMessage = $"Error saving configuration: {ex.Message}";
+        }
+    }
+    
+    private string GetCurrentConfigurationJson()
+    {
+        try
+        {
+            var config = new
+            {
+                SoundItems = SoundItems.Select(s => new
+                {
+                    s.Id,
+                    s.Name,
+                    s.FilePath,
+                    s.Hotkey,
+                    s.IsEnabled
+                }).ToList()
+            };
+            return System.Text.Json.JsonSerializer.Serialize(config);
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+    
+    private void CheckForUnsavedChanges()
+    {
+        var currentJson = GetCurrentConfigurationJson();
+        HasUnsavedChanges = currentJson != _lastSavedConfigJson;
+    }
+    
+    private async System.Threading.Tasks.Task SavePlayCountsAsync()
+    {
+        try
+        {
+            // Always save play counts even if user doesn't save other changes
+            var config = await _configService.LoadConfigurationAsync();
+            
+            // Update play counts from current sound items
+            foreach (var sound in SoundItems)
+            {
+                var configSound = config.SoundItems.FirstOrDefault(s => s.Id == sound.Id);
+                if (configSound != null)
+                {
+                    configSound.PlayCount = sound.PlayCount;
+                    configSound.LastPlayed = sound.LastPlayed;
+                }
+            }
+            
+            await _configService.SaveConfigurationAsync(config);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ERROR] Failed to save play counts: {ex}");
+        }
+    }
+    
+    public async System.Threading.Tasks.Task<bool> PromptSaveChangesAsync()
+    {
+        // Always save play counts regardless of user's choice
+        await SavePlayCountsAsync();
+        
+        if (!HasUnsavedChanges)
+        {
+            return true; // No changes, can proceed
+        }
+        
+        var result = System.Windows.MessageBox.Show(
+            "You have unsaved changes. Do you want to save before exiting?",
+            "Unsaved Changes",
+            System.Windows.MessageBoxButton.YesNoCancel,
+            System.Windows.MessageBoxImage.Question);
+        
+        if (result == System.Windows.MessageBoxResult.Yes)
+        {
+            await SaveConfigurationAsync();
+            return true; // Saved, can proceed
+        }
+        else if (result == System.Windows.MessageBoxResult.No)
+        {
+            return true; // Don't save, can proceed
+        }
+        else
+        {
+            return false; // Cancel, don't close
         }
     }
 
@@ -323,10 +466,7 @@ public class MainViewModel : ObservableObject, IDisposable
         {
             if (IsAudioRunning)
             {
-                _audioEngine.Stop();
-                IsAudioRunning = false;
-                AudioLevel = 0f; // Reset audio level bar to empty
-                StatusMessage = "Audio stopped";
+                StopAudio();
             }
             else
             {
@@ -348,6 +488,23 @@ public class MainViewModel : ObservableObject, IDisposable
             StatusMessage = $"Error: {ex.Message}";
             IsAudioRunning = false;
             AudioLevel = 0f; // Reset audio level bar to empty
+        }
+    }
+    
+    public void StopAudio()
+    {
+        try
+        {
+            _audioEngine.Stop();
+            IsAudioRunning = false;
+            AudioLevel = 0f; // Reset audio level bar to empty
+            StatusMessage = "Audio stopped";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error stopping audio: {ex.Message}";
+            IsAudioRunning = false;
+            AudioLevel = 0f;
         }
     }
 
@@ -410,9 +567,19 @@ public class MainViewModel : ObservableObject, IDisposable
                     {
                         RegisterHotkeyForSound(sound);
                     }
+                    
+                    // Track changes (exclude Volume and PlayCount)
+                    if (e.PropertyName != nameof(SoundItem.Volume) && 
+                        e.PropertyName != nameof(SoundItem.PlayCount) &&
+                        e.PropertyName != nameof(SoundItem.LastPlayed) &&
+                        e.PropertyName != nameof(SoundItem.DurationSeconds))
+                    {
+                        CheckForUnsavedChanges();
+                    }
                 };
             }
             
+            CheckForUnsavedChanges();
             StatusMessage = $"Added sound: {fileName}";
         }
     }
@@ -440,13 +607,23 @@ public class MainViewModel : ObservableObject, IDisposable
     {
         if (sound != null)
         {
-            if (sound.Hotkey != null)
+            var result = System.Windows.MessageBox.Show(
+                $"Are you sure you want to remove '{sound.Name}'?",
+                "Confirm Remove",
+                System.Windows.MessageBoxButton.YesNo,
+                System.Windows.MessageBoxImage.Question);
+            
+            if (result == System.Windows.MessageBoxResult.Yes)
             {
-                _hotkeyManager.UnregisterHotkey(sound.Id);
-            }
+                if (sound.Hotkey != null)
+                {
+                    _hotkeyManager.UnregisterHotkey(sound.Id);
+                }
 
-            SoundItems.Remove(sound);
-            StatusMessage = $"Removed sound: {sound.Name}";
+                SoundItems.Remove(sound);
+                CheckForUnsavedChanges();
+                StatusMessage = $"Removed sound: {sound.Name}";
+            }
         }
     }
 
@@ -463,28 +640,61 @@ public class MainViewModel : ObservableObject, IDisposable
             var sound = SoundItems.FirstOrDefault(s => s.Id == soundId);
             if (sound != null && sound.IsEnabled)
             {
-                _audioEngine.PlaySound(soundId, sound.Volume);
-                sound.LastPlayed = DateTime.Now;
-                sound.PlayCount++;
-                StatusMessage = $"Playing: {sound.Name}";
-                
-                // Clear the "Playing" message after sound duration (max 10 seconds)
-                _statusClearTimer?.Stop();
-                _statusClearTimer = new DispatcherTimer
-                {
-                    Interval = TimeSpan.FromSeconds(10)
-                };
-                _statusClearTimer.Tick += (s, e) =>
-                {
-                    _statusClearTimer?.Stop();
-                    if (StatusMessage.StartsWith("Playing:"))
-                    {
-                        StatusMessage = "Ready";
-                    }
-                };
-                _statusClearTimer.Start();
+                PlaySoundInternal(sound);
             }
         });
+    }
+    
+    private void PlaySound(SoundItem? sound)
+    {
+        if (sound != null && IsAudioRunning)
+        {
+            PlaySoundInternal(sound);
+        }
+    }
+    
+    private void PlaySoundInternal(SoundItem sound)
+    {
+        _audioEngine.PlaySound(sound.Id, sound.Volume);
+        _currentlyPlayingSoundId = sound.Id;
+        sound.LastPlayed = DateTime.Now;
+        sound.PlayCount++;
+        StatusMessage = $"Playing: {sound.Name}";
+        
+        // Notify UI that playing state changed
+        OnPropertyChanged(nameof(SoundItems));
+        
+        // Clear the "Playing" message after 30 seconds max
+        _statusClearTimer?.Stop();
+        _statusClearTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(30)
+        };
+        _statusClearTimer.Tick += (s, e) =>
+        {
+            _statusClearTimer?.Stop();
+            _currentlyPlayingSoundId = null;
+            OnPropertyChanged(nameof(SoundItems));
+            if (StatusMessage.StartsWith("Playing:"))
+            {
+                StatusMessage = "Ready";
+            }
+        };
+        _statusClearTimer.Start();
+    }
+    
+    private void StopAllSounds()
+    {
+        _audioEngine.StopAllSounds();
+        _currentlyPlayingSoundId = null;
+        _statusClearTimer?.Stop();
+        StatusMessage = "All sounds stopped";
+        OnPropertyChanged(nameof(SoundItems));
+    }
+    
+    public bool IsSoundPlaying(Guid soundId)
+    {
+        return _currentlyPlayingSoundId == soundId;
     }
 
     private void OnAudioLevelChanged(object? sender, float level)
@@ -539,7 +749,17 @@ public class MainViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
-        _audioEngine?.Dispose();
+        _statusClearTimer?.Stop();
+        
+        if (_audioEngine != null)
+        {
+            if (_audioEngine.IsRunning)
+            {
+                _audioEngine.Stop();
+            }
+            _audioEngine.Dispose();
+        }
+        
         _hotkeyManager?.Dispose();
     }
 }
