@@ -24,10 +24,13 @@ public class AudioEngine : IDisposable
     private readonly Dictionary<Guid, CachedSound> _cachedSounds = new();
     private WaveFormat? _mixerFormat;
     private float _microphoneGain = 1.0f;
+    private float _globalSoundVolume = 1.0f;
     private int _currentBufferSize = 240;
     private DateTime _lastLatencyCheck = DateTime.Now;
     private float _currentLatencyMs = 0f;
     private bool _monitoringEnabled = true;
+    private readonly Dictionary<Guid, List<CachedSoundSampleProvider>> _playingSounds = new();
+    private Guid? _currentlyPlayingSoundId = null;
 
     public event EventHandler<float>? AudioLevelChanged;
     public event EventHandler<string>? ErrorOccurred;
@@ -40,6 +43,12 @@ public class AudioEngine : IDisposable
     {
         get => _monitoringEnabled;
         set => _monitoringEnabled = value;
+    }
+    
+    public float GlobalSoundVolume
+    {
+        get => _globalSoundVolume;
+        set => _globalSoundVolume = Math.Clamp(value, 0f, 2.0f);
     }
     
     public void SetMicrophoneGain(float gain)
@@ -208,11 +217,14 @@ public class AudioEngine : IDisposable
             {
                 var audioFile = new AudioFileReader(soundItem.FilePath);
                 
-                // Check duration (10 second limit)
-                if (audioFile.TotalTime.TotalSeconds > 10)
+                // Store duration
+                soundItem.DurationSeconds = audioFile.TotalTime.TotalSeconds;
+                
+                // Check duration (30 second limit)
+                if (audioFile.TotalTime.TotalSeconds > 30)
                 {
                     audioFile.Dispose();
-                    return (false, $"Sound '{soundItem.Name}' is too long ({audioFile.TotalTime.TotalSeconds:F1}s). Maximum is 10 seconds.");
+                    return (false, $"Sound '{soundItem.Name}' is too long ({audioFile.TotalTime.TotalSeconds:F1}s). Maximum is 30 seconds.");
                 }
                 
                 // Use default format if mixer format is not initialized yet (will be reloaded when audio starts)
@@ -246,19 +258,58 @@ public class AudioEngine : IDisposable
 
         lock (_lock)
         {
+            // Stop any currently playing sound
+            StopAllSounds();
+            
             if (_cachedSounds.TryGetValue(soundId, out var cachedSound))
             {
+                // Apply global sound volume
+                var effectiveVolume = volume * _globalSoundVolume;
+                
                 // Add sound to main output (VB-Cable)
-                var sampleProvider = new CachedSoundSampleProvider(cachedSound, volume);
+                var sampleProvider = new CachedSoundSampleProvider(cachedSound, effectiveVolume);
                 _mixer.AddMixerInput(sampleProvider);
+                
+                // Track the playing sound
+                if (!_playingSounds.ContainsKey(soundId))
+                {
+                    _playingSounds[soundId] = new List<CachedSoundSampleProvider>();
+                }
+                _playingSounds[soundId].Add(sampleProvider);
+                _currentlyPlayingSoundId = soundId;
                 
                 // Also add sound to monitor output (user's speakers) if available
                 if (_monitorMixer != null && _monitoringEnabled)
                 {
-                    var monitorSampleProvider = new CachedSoundSampleProvider(cachedSound, volume);
+                    var monitorSampleProvider = new CachedSoundSampleProvider(cachedSound, effectiveVolume);
                     _monitorMixer.AddMixerInput(monitorSampleProvider);
+                    _playingSounds[soundId].Add(monitorSampleProvider);
                 }
             }
+        }
+    }
+    
+    public void StopAllSounds()
+    {
+        lock (_lock)
+        {
+            foreach (var soundProviders in _playingSounds.Values)
+            {
+                foreach (var provider in soundProviders)
+                {
+                    provider.Stop();
+                }
+            }
+            _playingSounds.Clear();
+            _currentlyPlayingSoundId = null;
+        }
+    }
+    
+    public bool IsSoundPlaying(Guid soundId)
+    {
+        lock (_lock)
+        {
+            return _currentlyPlayingSoundId == soundId;
         }
     }
 
@@ -407,7 +458,20 @@ public class AudioEngine : IDisposable
                 samples.AddRange(buffer.Take(samplesRead));
             }
 
-            AudioData = samples.ToArray();
+            var audioData = samples.ToArray();
+            
+            // Normalize audio to 0 dB (peak normalization)
+            var maxSample = audioData.Max(Math.Abs);
+            if (maxSample > 0.0f && maxSample < 1.0f)
+            {
+                var normalizationFactor = 1.0f / maxSample;
+                for (int i = 0; i < audioData.Length; i++)
+                {
+                    audioData[i] *= normalizationFactor;
+                }
+            }
+            
+            AudioData = audioData;
             reader.Dispose();
         }
 
@@ -421,6 +485,7 @@ public class AudioEngine : IDisposable
         private readonly CachedSound _cachedSound;
         private readonly float _volume;
         private long _position;
+        private bool _stopped;
 
         public WaveFormat WaveFormat => _cachedSound.WaveFormat;
 
@@ -430,8 +495,18 @@ public class AudioEngine : IDisposable
             _volume = volume * cachedSound.Volume;
         }
 
+        public void Stop()
+        {
+            _stopped = true;
+        }
+
         public int Read(float[] buffer, int offset, int count)
         {
+            if (_stopped)
+            {
+                return 0;
+            }
+            
             var availableSamples = _cachedSound.AudioData.Length - _position;
             var samplesToCopy = Math.Min(availableSamples, count);
 
