@@ -124,11 +124,17 @@
                 
                 <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,10">
                     <Label Content="Microphone Gain" FontWeight="SemiBold"/>
-                    <Slider Value="{Binding MicrophoneGain}"
-                            Minimum="0" Maximum="2"
-                            TickFrequency="0.1"
-                            Width="200"
-                            HorizontalAlignment="Left"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Slider Value="{Binding MicrophoneGain}"
+                                Minimum="0" Maximum="2"
+                                TickFrequency="0.1"
+                                Width="180"
+                                VerticalAlignment="Center"/>
+                        <TextBlock VerticalAlignment="Center" 
+                                   Margin="10,0,0,0" 
+                                   Width="50"
+                                   Text="{Binding MicrophoneGain, StringFormat='{}{0:P0}'}"/>
+                    </StackPanel>
                 </StackPanel>
                 
                 <StackPanel Grid.Row="0" Grid.Column="1" Margin="10,0,0,10">
@@ -143,22 +149,42 @@
                     </ComboBox>
                 </StackPanel>
                 
-                <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,0,0,10">
-                    <TextBlock Text="VB-Cable Status: " FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding VBCableStatus}" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,10,10">
+                    <Label Content="Global Sound Volume" FontWeight="SemiBold"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Slider Value="{Binding GlobalSoundVolume}"
+                                Minimum="0" Maximum="2"
+                                TickFrequency="0.1"
+                                Width="180"
+                                VerticalAlignment="Center"/>
+                        <TextBlock VerticalAlignment="Center" 
+                                   Margin="10,0,0,0" 
+                                   Width="50"
+                                   Text="{Binding GlobalSoundVolume, StringFormat='{}{0:P0}'}"/>
+                    </StackPanel>
                 </StackPanel>
                 
-                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="10,0,0,10">
-                    <TextBlock Text="Current Latency: " FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <TextBlock VerticalAlignment="Center" Margin="5,0,10,0">
-                        <Run Text="{Binding CurrentLatency, StringFormat='{}{0:F2}'}" />
-                        <Run Text="ms"/>
-                    </TextBlock>
-                    <CheckBox Content="Enable Monitoring" 
-                              IsChecked="{Binding MonitoringEnabled}"
-                              VerticalAlignment="Center"
-                              ToolTip="Play sounds on your main speakers/headphones in addition to VB-Cable"/>
-                </StackPanel>
+                <Grid Grid.Row="1" Grid.Column="1" Margin="10,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,15,0">
+                        <TextBlock Text="VB-Cable: " FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding VBCableStatus}" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Latency: " FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBlock VerticalAlignment="Center" Margin="5,0,10,0">
+                            <Run Text="{Binding CurrentLatency, StringFormat='{}{0:F2}'}" />
+                            <Run Text="ms"/>
+                        </TextBlock>
+                        <CheckBox Content="Enable Monitoring" 
+                                  IsChecked="{Binding MonitoringEnabled}"
+                                  VerticalAlignment="Center"
+                                  ToolTip="Play sounds on your main speakers/headphones in addition to VB-Cable"/>
+                    </StackPanel>
+                </Grid>
                 
                 <ProgressBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
                              Value="{Binding AudioLevel}"
@@ -178,7 +204,7 @@
                 <TextBlock Text="Sound Items" 
                            FontSize="20" FontWeight="SemiBold"
                            VerticalAlignment="Center"
-                           Margin="0,0,10,0">
+                           Margin="0,0,15,0">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
                             <Style.Triggers>
@@ -191,83 +217,195 @@
                 </TextBlock>
                 <Button Content="Add Sound" 
                         Command="{Binding AddSoundCommand}"
-                        Padding="10,5"/>
+                        Padding="10,5"
+                        Margin="0,0,10,0"/>
+                <Button Content="Stop All Sounds" 
+                        Command="{Binding StopAllSoundsCommand}"
+                        Padding="10,5"
+                        Background="#FFA500"
+                        Foreground="White"
+                        ToolTip="Stop any playing audio (microphone continues)"/>
             </StackPanel>
 
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                <ItemsControl ItemsSource="{Binding SoundItems}">
-                    <ItemsControl.Style>
-                        <Style TargetType="ItemsControl">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsAudioRunning}" Value="False">
-                                    <Setter Property="Opacity" Value="0.4"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ItemsControl.Style>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Background="#F5F5F5"
-                                    BorderBrush="#CCCCCC"
-                                    BorderThickness="1"
-                                    CornerRadius="4"
-                                    Padding="15"
-                                    Margin="0,0,0,10">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-
-                                    <StackPanel Grid.Column="0">
-                                        <Label Content="Name" FontWeight="SemiBold"/>
-                                        <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
-                                                 Width="250" HorizontalAlignment="Left" Margin="0,0,0,10"/>
+            <Grid Grid.Row="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsAudioRunning}" Value="False">
+                                <Setter Property="Opacity" Value="0.4"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                
+                <!-- Table Header -->
+                <Border Grid.Row="0" Background="#E0E0E0" BorderBrush="#CCCCCC" BorderThickness="1" Padding="5">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="40"/>
+                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="80"/>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="80"/>
+                            <ColumnDefinition Width="70"/>
+                            <ColumnDefinition Width="50"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="" FontWeight="Bold"/>
+                        <TextBlock Grid.Column="1" Text="Name" FontWeight="Bold"/>
+                        <TextBlock Grid.Column="2" Text="Duration" FontWeight="Bold"/>
+                        <TextBlock Grid.Column="3" Text="Hotkey" FontWeight="Bold"/>
+                        <TextBlock Grid.Column="4" Text="Volume" FontWeight="Bold"/>
+                        <TextBlock Grid.Column="5" Text="Plays" FontWeight="Bold"/>
+                        <TextBlock Grid.Column="6" Text="" FontWeight="Bold"/>
+                    </Grid>
+                </Border>
+                
+                <!-- Table Body -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding SoundItems}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="#DDDDDD" BorderThickness="0,0,1,1" Padding="5" Background="White">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40"/>
+                                            <ColumnDefinition Width="2*"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="150"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="70"/>
+                                            <ColumnDefinition Width="50"/>
+                                        </Grid.ColumnDefinitions>
                                         
-                                        <Label Content="File Path" FontWeight="SemiBold"/>
-                                        <TextBox Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}"
-                                                 MinWidth="400" Margin="0,0,0,10" IsReadOnly="True"/>
+                                        <!-- Play/Pause Button -->
+                                        <Button Grid.Column="0" 
+                                                Command="{Binding DataContext.PlaySoundCommand, ElementName=RootGrid}"
+                                                CommandParameter="{Binding}"
+                                                Width="30" Height="25"
+                                                Padding="0"
+                                                ToolTip="Play sound">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Content" Value="▶"/>
+                                                    <Setter Property="Background" Value="#28A745"/>
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                    <Setter Property="BorderThickness" Value="0"/>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
                                         
-                                        <Label Content="Hotkey" FontWeight="SemiBold"/>
-                                        <controls:HotkeyTextBox Hotkey="{Binding Hotkey, Mode=TwoWay}"
-                                                                MinWidth="200" Margin="0,0,0,10"/>
+                                        <!-- Name (Editable) -->
+                                        <TextBox Grid.Column="1" 
+                                                 Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                                 VerticalAlignment="Center"
+                                                 BorderThickness="0"
+                                                 Background="Transparent"
+                                                 Margin="5,0"/>
                                         
-                                        <StackPanel Orientation="Horizontal">
-                                            <StackPanel Margin="0,0,20,0">
-                                                <Label Content="Volume" FontWeight="SemiBold"/>
-                                                <Slider Value="{Binding Volume}"
-                                                        Minimum="0" Maximum="1"
-                                                        TickFrequency="0.1"
-                                                        Width="150"
-                                                        VerticalAlignment="Center"/>
-                                            </StackPanel>
-                                            
-                                            <CheckBox Content="Enabled" 
-                                                      IsChecked="{Binding IsEnabled}"
-                                                      VerticalAlignment="Center"
-                                                      Margin="0,20,20,0"/>
-                                            
-                                            <TextBlock VerticalAlignment="Center" 
-                                                       Margin="0,20,0,0"
-                                                       Foreground="Gray">
-                                                <Run Text="Plays: "/>
-                                                <Run Text="{Binding PlayCount, Mode=OneWay}"/>
-                                            </TextBlock>
-                                        </StackPanel>
-                                    </StackPanel>
-
-                                    <Button Grid.Column="1" 
-                                            Content="Remove"
-                                            Command="{Binding DataContext.RemoveSoundCommand, ElementName=RootGrid}"
-                                            CommandParameter="{Binding}"
-                                            VerticalAlignment="Top"
-                                            Padding="10,5"/>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
+                                        <!-- Duration -->
+                                        <TextBlock Grid.Column="2" 
+                                                   Text="{Binding DurationSeconds, StringFormat='{}{0:F1}s'}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="5,0"/>
+                                        
+                                        <!-- Hotkey -->
+                                        <controls:HotkeyTextBox Grid.Column="3" 
+                                                                Hotkey="{Binding Hotkey, Mode=TwoWay}"
+                                                                VerticalAlignment="Center"
+                                                                Height="25"
+                                                                Margin="5,0"/>
+                                        
+                                        <!-- Volume (clickable with popup) -->
+                                        <Grid Grid.Column="4">
+                                            <Button x:Name="VolumeButton"
+                                                    Background="Transparent"
+                                                    BorderThickness="0"
+                                                    Cursor="Hand"
+                                                    ToolTip="Click to adjust volume"
+                                                    HorizontalAlignment="Center"
+                                                    Padding="5"
+                                                    Click="VolumeButton_Click">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Template">
+                                                            <Setter.Value>
+                                                                <ControlTemplate TargetType="Button">
+                                                                    <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                                                        <TextBlock Text="{Binding Volume, StringFormat='{}{0:P0}'}"
+                                                                                   HorizontalAlignment="Center" 
+                                                                                   VerticalAlignment="Center"
+                                                                                   Cursor="Hand"/>
+                                                                    </Border>
+                                                                </ControlTemplate>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                            <Popup PlacementTarget="{Binding ElementName=VolumeButton}"
+                                                   Placement="Bottom"
+                                                   StaysOpen="False"
+                                                   AllowsTransparency="True">
+                                                <Border Background="White"
+                                                        BorderBrush="#CCCCCC"
+                                                        BorderThickness="1"
+                                                        Padding="10"
+                                                        CornerRadius="4">
+                                                    <Border.Effect>
+                                                        <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.3"/>
+                                                    </Border.Effect>
+                                                    <StackPanel Width="200">
+                                                        <TextBlock Text="Adjust Volume" 
+                                                                   FontWeight="SemiBold" 
+                                                                   Margin="0,0,0,10"/>
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <Slider Value="{Binding Volume, Mode=TwoWay}"
+                                                                    Minimum="0" 
+                                                                    Maximum="1"
+                                                                    TickFrequency="0.05"
+                                                                    Width="140"
+                                                                    VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{Binding Volume, StringFormat='{}{0:P0}'}"
+                                                                       VerticalAlignment="Center"
+                                                                       Margin="10,0,0,0"
+                                                                       Width="40"/>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+                                            </Popup>
+                                        </Grid>
+                                        
+                                        <!-- Play Count -->
+                                        <TextBlock Grid.Column="5" 
+                                                   Text="{Binding PlayCount}"
+                                                   VerticalAlignment="Center"
+                                                   HorizontalAlignment="Center"
+                                                   Foreground="Gray"
+                                                   Margin="5,0"/>
+                                        
+                                        <!-- Remove Button -->
+                                        <Button Grid.Column="6" 
+                                                Content="✕"
+                                                Command="{Binding DataContext.RemoveSoundCommand, ElementName=RootGrid}"
+                                                CommandParameter="{Binding}"
+                                                Width="30" Height="25"
+                                                Background="#DC3545"
+                                                Foreground="White"
+                                                BorderThickness="0"
+                                                ToolTip="Remove sound"
+                                                Padding="0"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
         </Grid>
 
         <!-- Status Bar -->
