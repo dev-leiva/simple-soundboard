@@ -4,6 +4,16 @@
              StartupUri="MainWindow.xaml"
              ShutdownMode="OnMainWindowClose">
     <Application.Resources>
-        
+        <!-- Light Theme (Default) -->
+        <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#F5F5F5"/>
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#000000"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#808080"/>
+        <SolidColorBrush x:Key="BorderBrush" Color="#CCCCCC"/>
+        <SolidColorBrush x:Key="TableHeaderBrush" Color="#E0E0E0"/>
+        <SolidColorBrush x:Key="TableRowBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="TableBorderBrush" Color="#DDDDDD"/>
+        <SolidColorBrush x:Key="StatusBarBrush" Color="#E8E8E8"/>
+        <SolidColorBrush x:Key="InputBackgroundBrush" Color="#FFFFFF"/>
     </Application.Resources>
 </Application>
