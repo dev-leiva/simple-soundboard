@@ -460,11 +460,24 @@ public class AudioEngine : IDisposable
 
             var audioData = samples.ToArray();
             
-            // Normalize audio to 0 dB (peak normalization)
+            // Normalize audio to -3 dB threshold (peak normalization)
+            // Only normalize if peak exceeds -3 dB (0.7079 linear = -3 dB)
+            const float targetPeak = 0.7079f; // -3 dB in linear scale
             var maxSample = audioData.Max(Math.Abs);
-            if (maxSample > 0.0f && maxSample < 1.0f)
+            
+            // If the audio is louder than -3 dB, reduce it to -3 dB
+            if (maxSample > targetPeak)
             {
-                var normalizationFactor = 1.0f / maxSample;
+                var normalizationFactor = targetPeak / maxSample;
+                for (int i = 0; i < audioData.Length; i++)
+                {
+                    audioData[i] *= normalizationFactor;
+                }
+            }
+            // If the audio is quieter than -3 dB but very quiet (< 0.1), boost to -3 dB
+            else if (maxSample > 0.0f && maxSample < 0.1f)
+            {
+                var normalizationFactor = targetPeak / maxSample;
                 for (int i = 0; i < audioData.Length; i++)
                 {
                     audioData[i] *= normalizationFactor;
