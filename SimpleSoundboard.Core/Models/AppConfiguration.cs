@@ -10,6 +10,7 @@ public class AppConfiguration
     public float MicrophoneVolume { get; set; } = 1.0f;
     public bool UseExclusiveMode { get; set; } = true;
     public bool EnableVirtualAudioDriver { get; set; } = false;
+    public bool IsDarkMode { get; set; } = false;
     public List<SoundItem> SoundItems { get; set; } = new();
 
     public static AppConfiguration GetDefault()
