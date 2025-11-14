@@ -1,5 +1,3 @@
-Here's the updated README with outdated references removed and the new changelog information integrated:
-
 # Simple Soundboard
 
 A low-latency Windows soundboard application that mixes microphone input with triggered sound files and outputs to virtual or physical audio devices. Perfect for Discord, OBS, streaming, and content creation.
