@@ -6,10 +6,13 @@ A low-latency Windows soundboard application that mixes microphone input with tr
 
 ## Features
 
+- **Dark Mode**: Full dark mode theme with toggle button (sun/moon icon) for comfortable viewing
+- **Pin/Unpin Sounds**: Pin important sounds to keep them at the top of the list
+- **Drag-and-Drop Reordering**: Rearrange sounds by dragging them to new positions
 - **VB-Cable Integration**: Automatic detection and setup of VB-Audio Virtual Cable
 - **Dual Audio Output**: Sounds play on both VB-Cable (for Discord/OBS) and your main speakers (for monitoring)
 - **Stop-and-Play Behavior**: New sounds automatically stop currently playing audio for clean playback
-- **Audio Normalization**: Automatic 0 dB peak normalization ensures consistent volume across all sounds
+- **Audio Normalization**: Smart -3 dB peak normalization prevents overly loud sounds while boosting quiet ones
 - **Global Sound Volume**: Master volume control (0-200%) for all sound effects
 - **Table-Style UI**: Compact sound library with Play, Name, Duration, Hotkey, Volume, Play Count columns
 - **Visual Audio State**: Color-coded Start/Stop button (Green=OFF, Red=ON) with sound list graying when inactive
@@ -201,7 +204,14 @@ Example: Ctrl+Shift+1 = `"modifiers": 6, "virtualKeyCode": 49`
 
 ## Recent Updates
 
-### v0.4.0 - Major UX Overhaul & Audio Enhancements (Latest)
+### v0.5.0 - Dark Mode, Sound Reordering & Audio Improvements (Latest)
+- ✅ **Dark Mode Theme**: Full dark mode support with sun/moon toggle button
+- ✅ **Pin/Unpin Sounds**: Pin important sounds to top of list with pin icon
+- ✅ **Drag-and-Drop Reordering**: Rearrange sounds by dragging to new positions
+- ✅ **Improved Normalization**: Smart -3 dB threshold prevents overly loud sounds
+- ✅ **Persistent Ordering**: Sound order and pin state saved in configuration
+
+### v0.4.0 - Major UX Overhaul & Audio Enhancements
 - ✅ **Stop-and-Play Behavior**: Sounds automatically stop when new sound triggered (no overlap)
 - ✅ **Audio Normalization**: All sounds normalized to 0 dB for consistent volume
 - ✅ **Global Sound Volume**: Master volume control (0-200%, default 100%)
