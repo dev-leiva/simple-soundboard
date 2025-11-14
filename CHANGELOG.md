@@ -4,6 +4,51 @@ All notable changes to **SimpleSoundboard** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.5.0] - Dark Mode, Sound Reordering & Audio Improvements
+
+Enhancements to theming, sound organization, and audio normalization quality.
+
+### Added
+
+* **Dark Mode Theme:** Full dark mode support with toggle button (sun/moon icon) in header.
+    * Theme preference persisted in configuration.
+    * Dynamic theme switching without restart.
+    * Carefully designed dark color palette for comfortable viewing.
+* **Pin/Unpin Sounds:** Pin important sounds to keep them at the top of the list.
+    * Pin icon button in sound items table.
+    * Pinned items always displayed above unpinned items.
+    * Pin state saved in configuration.
+* **Drag-and-Drop Reordering:** Rearrange sounds by dragging them to new positions.
+    * Intuitive click-and-drag interface.
+    * Respects pin boundaries (pinned items stay in pinned section).
+    * Order persisted across sessions.
+* **SortOrder Property:** Added `SortOrder` property to `SoundItem` for persistent ordering.
+
+### Changed
+
+* **Audio Normalization Algorithm:** Improved normalization to use -3 dB threshold instead of 0 dB.
+    * Sounds exceeding -3 dB are reduced to -3 dB peak level.
+    * Very quiet sounds (< 0.1 peak) are boosted to -3 dB.
+    * Prevents overly loud sounds while maintaining dynamics.
+    * More natural and comfortable listening experience.
+
+### Fixed
+
+* **Window Close Audio Handling:** Verified audio properly stops when closing window.
+    * Audio engine cleanly shuts down before exit.
+    * No lingering audio processes after application closes.
+
+### Technical Details
+
+* SoundItem: Added `IsPinned` (bool) and `SortOrder` (int) properties.
+* AppConfiguration: Added `IsDarkMode` (bool) property.
+* MainViewModel: Added `IsDarkMode`, `TogglePinCommand`, `ToggleThemeCommand`, `MoveSoundItem()`, `ReorderSounds()`, `UpdateSortOrders()`, and `ApplyTheme()` methods.
+* MainWindow.xaml: Added theme resources with `DynamicResource` bindings for colors, pin column in table, theme toggle button.
+* MainWindow.xaml.cs: Added drag-and-drop event handlers (`SoundItem_PreviewMouseLeftButtonDown`, `SoundItem_PreviewMouseMove`, `SoundItem_Drop`, `SoundItem_DragEnter`).
+* AudioEngine: Updated `CachedSound` constructor to implement -3 dB normalization threshold.
+
+---
+
 ## [v0.4.0] - Major UX Overhaul & Audio Enhancements
 
 Significant improvements to audio playback behavior, UI redesign with table layout, and extended audio capabilities.
