@@ -33,6 +33,7 @@ public class MainViewModel : ObservableObject, IDisposable
     private Guid? _currentlyPlayingSoundId = null;
     private bool _hasUnsavedChanges = false;
     private string _lastSavedConfigJson = string.Empty;
+    private bool _isDarkMode = false;
 
     public ObservableCollection<SoundItem> SoundItems { get; } = new();
     public ObservableCollection<AudioDeviceInfo> InputDevices { get; } = new();
@@ -150,11 +151,26 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand ShowVBCableSetupCommand { get; }
     public ICommand StopAllSoundsCommand { get; }
     public ICommand PlaySoundCommand { get; }
+    public ICommand TogglePinCommand { get; }
+    public ICommand ToggleThemeCommand { get; }
+    public ICommand ClearHotkeyCommand { get; }
     
     public bool HasUnsavedChanges
     {
         get => _hasUnsavedChanges;
         private set => SetProperty(ref _hasUnsavedChanges, value);
+    }
+    
+    public bool IsDarkMode
+    {
+        get => _isDarkMode;
+        set
+        {
+            if (SetProperty(ref _isDarkMode, value))
+            {
+                ApplyTheme(value);
+            }
+        }
     }
 
     public MainViewModel()
@@ -182,6 +198,9 @@ public class MainViewModel : ObservableObject, IDisposable
             ShowVBCableSetupCommand = new RelayCommand(ShowVBCableSetup);
             StopAllSoundsCommand = new RelayCommand(StopAllSounds);
             PlaySoundCommand = new RelayCommand<SoundItem>(PlaySound);
+            TogglePinCommand = new RelayCommand<SoundItem>(TogglePin);
+            ToggleThemeCommand = new RelayCommand(() => IsDarkMode = !IsDarkMode);
+            ClearHotkeyCommand = new RelayCommand<SoundItem>(ClearHotkey);
 
             // Safely attempt to initialize devices and config
             try
@@ -250,7 +269,7 @@ public class MainViewModel : ObservableObject, IDisposable
                         RegisterHotkeyForSound(snd);
                     }
                     
-                    // Track changes (exclude Volume and PlayCount)
+                    // Track changes (exclude Volume, PlayCount, LastPlayed, DurationSeconds)
                     if (e.PropertyName != nameof(SoundItem.Volume) && 
                         e.PropertyName != nameof(SoundItem.PlayCount) &&
                         e.PropertyName != nameof(SoundItem.LastPlayed) &&
@@ -286,6 +305,9 @@ public class MainViewModel : ObservableObject, IDisposable
                 _audioEngine.SetBufferSize(config.BufferSize);
                 OnPropertyChanged(nameof(SelectedBufferSize));
             }
+            
+            // Restore dark mode theme
+            IsDarkMode = config.IsDarkMode;
             
             // Register hotkeys if HotkeyManager is already initialized
             if (_hotkeyManager.IsInitialized)
@@ -352,6 +374,7 @@ public class MainViewModel : ObservableObject, IDisposable
                 SelectedInputDeviceId = SelectedInputDevice?.DeviceId ?? string.Empty,
                 SelectedOutputDeviceId = SelectedOutputDevice?.DeviceId ?? string.Empty,
                 BufferSize = _selectedBufferSize,
+                IsDarkMode = _isDarkMode,
                 SoundItems = SoundItems.ToList()
             };
 
@@ -385,7 +408,9 @@ public class MainViewModel : ObservableObject, IDisposable
                     s.Name,
                     s.FilePath,
                     s.Hotkey,
-                    s.IsEnabled
+                    s.IsEnabled,
+                    s.IsPinned,
+                    s.SortOrder
                 }).ToList()
             };
             return System.Text.Json.JsonSerializer.Serialize(config);
@@ -532,55 +557,65 @@ public class MainViewModel : ObservableObject, IDisposable
     {
         var openFileDialog = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "Select Sound File",
+            Title = "Select Sound Files",
             Filter = "Audio Files|*.mp3;*.wav;*.ogg;*.flac;*.m4a;*.wma|" +
                      "MP3 Files|*.mp3|" +
                      "WAV Files|*.wav|" +
                      "All Files|*.*",
-            FilterIndex = 1
+            FilterIndex = 1,
+            Multiselect = true  // Enable multi-file selection
         };
 
         if (openFileDialog.ShowDialog() == true)
         {
-            var filePath = openFileDialog.FileName;
-            var fileName = System.IO.Path.GetFileNameWithoutExtension(filePath);
+            int addedCount = 0;
             
-            var newSound = new SoundItem
+            foreach (var filePath in openFileDialog.FileNames)
             {
-                Name = fileName,
-                FilePath = filePath,
-                Volume = 1.0f,
-                IsEnabled = true
-            };
-
-            SoundItems.Add(newSound);
-            
-            // Try to load the sound
-            _ = _audioEngine.LoadSoundAsync(newSound);
-            
-            // Subscribe to property changes to register hotkey when set
-            if (newSound is System.ComponentModel.INotifyPropertyChanged notifyPropertyChanged)
-            {
-                notifyPropertyChanged.PropertyChanged += (s, e) =>
+                var fileName = System.IO.Path.GetFileNameWithoutExtension(filePath);
+                
+                var newSound = new SoundItem
                 {
-                    if (e.PropertyName == nameof(SoundItem.Hotkey) && s is SoundItem sound)
-                    {
-                        RegisterHotkeyForSound(sound);
-                    }
-                    
-                    // Track changes (exclude Volume and PlayCount)
-                    if (e.PropertyName != nameof(SoundItem.Volume) && 
-                        e.PropertyName != nameof(SoundItem.PlayCount) &&
-                        e.PropertyName != nameof(SoundItem.LastPlayed) &&
-                        e.PropertyName != nameof(SoundItem.DurationSeconds))
-                    {
-                        CheckForUnsavedChanges();
-                    }
+                    Name = fileName,
+                    FilePath = filePath,
+                    Volume = 1.0f,
+                    IsEnabled = true,
+                    SortOrder = SoundItems.Count
                 };
+
+                SoundItems.Add(newSound);
+                
+                // Try to load the sound
+                _ = _audioEngine.LoadSoundAsync(newSound);
+                
+                // Subscribe to property changes to register hotkey when set
+                if (newSound is System.ComponentModel.INotifyPropertyChanged notifyPropertyChanged)
+                {
+                    notifyPropertyChanged.PropertyChanged += (s, e) =>
+                    {
+                        if (e.PropertyName == nameof(SoundItem.Hotkey) && s is SoundItem sound)
+                        {
+                            RegisterHotkeyForSound(sound);
+                        }
+                        
+                        // Track changes (exclude Volume, PlayCount, LastPlayed, DurationSeconds)
+                        if (e.PropertyName != nameof(SoundItem.Volume) && 
+                            e.PropertyName != nameof(SoundItem.PlayCount) &&
+                            e.PropertyName != nameof(SoundItem.LastPlayed) &&
+                            e.PropertyName != nameof(SoundItem.DurationSeconds))
+                        {
+                            CheckForUnsavedChanges();
+                        }
+                    };
+                }
+                
+                addedCount++;
             }
             
             CheckForUnsavedChanges();
-            StatusMessage = $"Added sound: {fileName}";
+            StatusMessage = addedCount == 1 
+                ? $"Added 1 sound" 
+                : $"Added {addedCount} sounds";
         }
     }
 
@@ -624,6 +659,21 @@ public class MainViewModel : ObservableObject, IDisposable
                 CheckForUnsavedChanges();
                 StatusMessage = $"Removed sound: {sound.Name}";
             }
+        }
+    }
+    
+    private void ClearHotkey(SoundItem? sound)
+    {
+        if (sound != null && sound.Hotkey != null)
+        {
+            // Unregister the hotkey
+            _hotkeyManager.UnregisterHotkey(sound.Id);
+            
+            // Clear the hotkey
+            sound.Hotkey = null;
+            
+            CheckForUnsavedChanges();
+            StatusMessage = $"Cleared hotkey for: {sound.Name}";
         }
     }
 
@@ -695,6 +745,100 @@ public class MainViewModel : ObservableObject, IDisposable
     public bool IsSoundPlaying(Guid soundId)
     {
         return _currentlyPlayingSoundId == soundId;
+    }
+    
+    private void TogglePin(SoundItem? sound)
+    {
+        if (sound != null)
+        {
+            sound.IsPinned = !sound.IsPinned;
+            ReorderSounds();
+            CheckForUnsavedChanges();
+            StatusMessage = sound.IsPinned ? $"Pinned: {sound.Name}" : $"Unpinned: {sound.Name}";
+        }
+    }
+    
+    public void MoveSoundItem(SoundItem sound, int newIndex)
+    {
+        if (sound == null) return;
+        
+        var oldIndex = SoundItems.IndexOf(sound);
+        if (oldIndex == newIndex || oldIndex == -1) return;
+        
+        // Don't allow moving pinned items below unpinned, or unpinned above pinned
+        var pinnedCount = SoundItems.Count(s => s.IsPinned);
+        if (sound.IsPinned && newIndex >= pinnedCount)
+        {
+            return; // Can't move pinned item below unpinned items
+        }
+        if (!sound.IsPinned && newIndex < pinnedCount)
+        {
+            return; // Can't move unpinned item above pinned items
+        }
+        
+        SoundItems.Move(oldIndex, newIndex);
+        UpdateSortOrders();
+        CheckForUnsavedChanges();
+    }
+    
+    private void ReorderSounds()
+    {
+        // Sort by IsPinned (desc) then by SortOrder
+        var sorted = SoundItems
+            .OrderByDescending(s => s.IsPinned)
+            .ThenBy(s => s.SortOrder)
+            .ToList();
+        
+        SoundItems.Clear();
+        foreach (var sound in sorted)
+        {
+            SoundItems.Add(sound);
+        }
+        
+        UpdateSortOrders();
+    }
+    
+    private void UpdateSortOrders()
+    {
+        for (int i = 0; i < SoundItems.Count; i++)
+        {
+            SoundItems[i].SortOrder = i;
+        }
+    }
+    
+    private void ApplyTheme(bool isDark)
+    {
+        var app = System.Windows.Application.Current;
+        if (app == null) return;
+        
+        if (isDark)
+        {
+            // Apply dark theme
+            app.Resources["WindowBackgroundBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1E, 0x1E, 0x1E));
+            app.Resources["PanelBackgroundBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x2D, 0x2D, 0x30));
+            app.Resources["TextPrimaryBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFF, 0xFF, 0xFF));
+            app.Resources["TextSecondaryBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xB0, 0xB0, 0xB0));
+            app.Resources["BorderBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x3E, 0x3E, 0x42));
+            app.Resources["TableHeaderBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x25, 0x25, 0x28));
+            app.Resources["TableRowBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x2D, 0x2D, 0x30));
+            app.Resources["TableBorderBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x3E, 0x3E, 0x42));
+            app.Resources["StatusBarBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x25, 0x25, 0x28));
+            app.Resources["InputBackgroundBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x3E, 0x3E, 0x42));
+        }
+        else
+        {
+            // Apply light theme
+            app.Resources["WindowBackgroundBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFF, 0xFF, 0xFF));
+            app.Resources["PanelBackgroundBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF5, 0xF5, 0xF5));
+            app.Resources["TextPrimaryBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x00, 0x00, 0x00));
+            app.Resources["TextSecondaryBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x80, 0x80, 0x80));
+            app.Resources["BorderBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xCC, 0xCC, 0xCC));
+            app.Resources["TableHeaderBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xE0, 0xE0, 0xE0));
+            app.Resources["TableRowBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFF, 0xFF, 0xFF));
+            app.Resources["TableBorderBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xDD, 0xDD, 0xDD));
+            app.Resources["StatusBarBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xE8, 0xE8, 0xE8));
+            app.Resources["InputBackgroundBrush"] = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFF, 0xFF, 0xFF));
+        }
     }
 
     private void OnAudioLevelChanged(object? sender, float level)
